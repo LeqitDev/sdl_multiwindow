@@ -6,21 +6,27 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
 use sdl2::render::Canvas;
+use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::Window;
 use sdl2::VideoSubsystem;
 use std::cell::{RefCell, RefMut};
+use std::env;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::Duration;
 
+type CanvasCell = Rc<RefCell<Canvas<Window>>>;
+type DrawFn = Box<dyn FnMut(CanvasCell, Vec<Box<dyn Widget>>, Rc<RefCell<Sdl2TtfContext>>)>;
+
 struct MyWindow {
-    update: Box<dyn FnMut(CanvasCell, Vec<Box<dyn Widget>>)>,
+    update: DrawFn,
     id: u32,
     active: bool,
     canvas: CanvasCell,
 }
 
 impl MyWindow {
-    fn new<F: 'static + FnMut(CanvasCell, Vec<Box<dyn Widget>>)>(
+    fn new<F: 'static + FnMut(CanvasCell, Vec<Box<dyn Widget>>, Rc<RefCell<Sdl2TtfContext>>)>(
         update: F,
         id: u32,
         canvas: CanvasCell,
@@ -34,11 +40,11 @@ impl MyWindow {
         }
     }
 
-    fn update(&mut self, widgets: Vec<Box<dyn Widget>>) {
-        (self.update)(self.canvas.clone(), widgets);
+    fn update(&mut self, widgets: Vec<Box<dyn Widget>>, ttf_context: Rc<RefCell<Sdl2TtfContext>>) {
+        (self.update)(self.canvas.clone(), widgets, ttf_context);
     }
 
-    fn create<F: 'static + FnMut(CanvasCell, Vec<Box<dyn Widget>>)>(
+    fn create<F: 'static + FnMut(CanvasCell, Vec<Box<dyn Widget>>, Rc<RefCell<Sdl2TtfContext>>)>(
         video_subsystem: &VideoSubsystem,
         title: &str,
         width: u32,
@@ -103,25 +109,68 @@ impl Widget for Button {
         self.id
     }
 
-    fn draw(&self, canvas: &mut RefMut<Canvas<Window>>) {
-        canvas.set_draw_color(if !self.hover { Color::GREEN } else { Color::RED });
+    fn draw(&self, canvas: &mut RefMut<Canvas<Window>>, ttf_context: Rc<RefCell<Sdl2TtfContext>>) {
+        canvas.set_draw_color(if !self.hover {
+            Color::GREEN
+        } else {
+            Color::RED
+        });
         if let Err(e) = canvas.fill_rect(self.rect) {
             print!("{}", e)
         }
     }
 
     fn check_hover(&mut self, x: i32, y: i32) {
-        if self.rect.contains_point(Point::new(x, y)) {
-            self.hover = true;
-        } else {
-            self.hover = false;
+        self.hover = self.rect.contains_point(Point::new(x, y));
+    }
+}
+
+#[derive(Clone)]
+struct Text {
+    id: u32,
+    font_path: PathBuf,
+    text: String,
+    x: i32,
+    y: i32,
+}
+
+impl Text {
+    fn new(id: u32, font_path: PathBuf, text: String, x: i32, y: i32) -> Self {
+        Self {
+            id,
+            font_path,
+            text,
+            x,
+            y,
         }
     }
 }
 
+impl Widget for Text {
+    fn get_id(&self) -> u32 {
+        self.id
+    }
+
+    fn draw(&self, canvas: &mut RefMut<Canvas<Window>>, ttf_context: Rc<RefCell<Sdl2TtfContext>>) {
+        let ttf_ctx = ttf_context.borrow_mut();
+        let mut font = ttf_ctx
+            .load_font(Path::new(&self.font_path.as_os_str()), 128)
+            .unwrap();
+        font.set_style(sdl2::ttf::FontStyle::BOLD);
+        let surface = font.render("Hello Rust!").blended(Color::BLACK).unwrap();
+        let texture_creator = canvas.texture_creator();
+        let texture = texture_creator
+            .create_texture_from_surface(&surface)
+            .unwrap();
+        canvas.copy(&texture, None, Some(Rect::new(self.x, self.y, 40, 20)));
+    }
+
+    fn check_hover(&mut self, _x: i32, _y: i32) {}
+}
+
 trait Widget: DynClone {
     fn get_id(&self) -> u32;
-    fn draw(&self, canvas: &mut RefMut<Canvas<Window>>);
+    fn draw(&self, canvas: &mut RefMut<Canvas<Window>>, ttf_context: Rc<RefCell<Sdl2TtfContext>>);
     fn check_hover(&mut self, x: i32, y: i32);
 }
 
@@ -130,29 +179,42 @@ dyn_clone::clone_trait_object!(Widget);
 fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
+    let ttf_context = Rc::new(RefCell::new(sdl2::ttf::init().map_err(|e| e.to_string())?));
 
     let mut event_pump = sdl_context.event_pump()?;
+
+    let mut font_path = env::current_dir().unwrap();
+    font_path.push("assets");
+    font_path.push("OpenSans-Regular.ttf");
 
     let main_window = MyWindow::create(
         &video_subsystem,
         "Window 1",
         800,
         600,
-        move |canvas, widgets| {
+        move |canvas, widgets, ttf_context| {
             let mut c = canvas.borrow_mut();
             c.set_draw_color(Color::RGB(255, 0, 0));
             c.clear();
 
             for widget in widgets {
-                widget.draw(&mut c);
+                widget.draw(&mut c, ttf_context.clone());
             }
 
             c.present();
         },
     );
 
-    let mut widgets: Vec<Box<dyn Widget>> =
-        vec![Box::new(Button::new(main_window.id, 10, 10, 200, 20))];
+    let mut widgets: Vec<Box<dyn Widget>> = vec![
+        Box::new(Button::new(main_window.id, 10, 10, 200, 20)),
+        Box::new(Text::new(
+            main_window.id,
+            font_path,
+            "Hello Rust!".to_string(),
+            50,
+            50,
+        )),
+    ];
 
     let mut windows: Vec<MyWindow> = vec![main_window];
 
@@ -197,6 +259,7 @@ fn main() -> Result<(), String> {
                         .filter(|w| w.get_id() == window.id)
                         .cloned()
                         .collect(),
+                    ttf_context.clone(),
                 );
             }
         }
@@ -227,5 +290,3 @@ fn to_canvas(window: Window) -> Result<MyCanvas, String> {
     let canvas_cell = Rc::new(RefCell::new(canvas));
     Ok(MyCanvas::new(id, canvas_cell))
 }
-
-type CanvasCell = Rc<RefCell<Canvas<Window>>>;
