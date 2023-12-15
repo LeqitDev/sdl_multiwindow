@@ -3,9 +3,10 @@ extern crate sdl2;
 use dyn_clone::DynClone;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use sdl2::mouse::MouseButton;
 use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
-use sdl2::render::Canvas;
+use sdl2::render::{Canvas, TextureQuery};
 use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::Window;
 use sdl2::VideoSubsystem;
@@ -13,7 +14,7 @@ use std::cell::{RefCell, RefMut};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 type CanvasCell = Rc<RefCell<Canvas<Window>>>;
 type DrawFn = Box<dyn FnMut(CanvasCell, Vec<Box<dyn Widget>>, Rc<RefCell<Sdl2TtfContext>>)>;
@@ -92,14 +93,16 @@ struct Button {
     id: u32,
     rect: Rect,
     hover: bool,
+    on_click: Rc<RefCell<Box<dyn Fn()>>>,
 }
 
 impl Button {
-    fn new(id: u32, x: i32, y: i32, width: u32, height: u32) -> Self {
+    fn new<F: 'static + Fn()>(id: u32, x: i32, y: i32, width: u32, height: u32, on_click: F) -> Self {
         Self {
             id,
             rect: Rect::new(x, y, width, height),
             hover: false,
+            on_click: Rc::new(RefCell::new(Box::new(on_click))),
         }
     }
 }
@@ -122,6 +125,11 @@ impl Widget for Button {
 
     fn check_hover(&mut self, x: i32, y: i32) {
         self.hover = self.rect.contains_point(Point::new(x, y));
+    }
+
+    fn check_click(&self, x: i32, y: i32) {
+        let c = self.on_click.clone();
+        c.borrow()();
     }
 }
 
@@ -162,16 +170,22 @@ impl Widget for Text {
         let texture = texture_creator
             .create_texture_from_surface(&surface)
             .unwrap();
-        canvas.copy(&texture, None, Some(Rect::new(self.x, self.y, 40, 20)));
+        let TextureQuery { width, height, .. } = texture.query();
+        let ratio = width as f32/height as f32;
+        canvas.copy(&texture, None, Some(Rect::new(self.x, self.y, (20.*ratio) as u32, 20)));
     }
 
     fn check_hover(&mut self, _x: i32, _y: i32) {}
+
+    fn check_click(&self, x: i32, y: i32) {
+    }
 }
 
 trait Widget: DynClone {
     fn get_id(&self) -> u32;
     fn draw(&self, canvas: &mut RefMut<Canvas<Window>>, ttf_context: Rc<RefCell<Sdl2TtfContext>>);
     fn check_hover(&mut self, x: i32, y: i32);
+    fn check_click(&self, x: i32, y: i32);
 }
 
 dyn_clone::clone_trait_object!(Widget);
@@ -185,7 +199,7 @@ fn main() -> Result<(), String> {
 
     let mut font_path = env::current_dir().unwrap();
     font_path.push("assets");
-    font_path.push("OpenSans-Regular.ttf");
+    font_path.push("OpenSans-Bold.ttf");
 
     let main_window = MyWindow::create(
         &video_subsystem,
@@ -204,21 +218,28 @@ fn main() -> Result<(), String> {
             c.present();
         },
     );
+    let main_id = main_window.id;
+
+    let windows = Rc::new(RefCell::new(vec![main_window]));
+
+    let w_c = windows.clone();
+    
 
     let mut widgets: Vec<Box<dyn Widget>> = vec![
-        Box::new(Button::new(main_window.id, 10, 10, 200, 20)),
+        Box::new(Button::new(main_id, 10, 10, 200, 20, move || {
+            w_c.borrow_mut().push(MyWindow::create(&video_subsystem, "Second Window", 300, 500, move |c, w, t| {}));
+        })),
         Box::new(Text::new(
-            main_window.id,
+            main_id,
             font_path,
             "Hello Rust!".to_string(),
-            50,
-            50,
+            10,
+            10,
         )),
     ];
 
-    let mut windows: Vec<MyWindow> = vec![main_window];
-
     'running: loop {
+        let now = SystemTime::now();
         for event in event_pump.poll_iter() {
             match event {
                 Event::Window {
@@ -226,11 +247,12 @@ fn main() -> Result<(), String> {
                     window_id: id,
                     ..
                 } => {
-                    if let Some(entry_pos) = windows.iter().position(|w| w.id == id) {
-                        let entry = windows.get(entry_pos).unwrap();
+                    let mut bw = windows.borrow_mut();
+                    if let Some(entry_pos) = bw.iter().position(|w| w.id == id) {
+                        let entry = bw.get(entry_pos).unwrap();
                         drop(entry.canvas.to_owned());
-                        windows.remove(entry_pos);
-                        if windows.is_empty() {
+                        bw.remove(entry_pos);
+                        if bw.is_empty() {
                             break 'running;
                         }
                     }
@@ -246,12 +268,20 @@ fn main() -> Result<(), String> {
                     for widget in &mut widgets {
                         widget.check_hover(x, y);
                     }
+                },
+                Event::MouseButtonDown { window_id, mouse_btn: MouseButton::Left, clicks, x, y, ..} => {
+                    for widget in &mut widgets {
+                        if widget.get_id() == window_id {
+                            widget.check_click(x, y);
+                        }
+                    }
+                    // println!("Helloass");
                 }
                 _ => {}
             }
         }
 
-        for window in &mut windows {
+        for window in windows.borrow_mut().iter_mut() {
             if window.active {
                 window.update(
                     widgets
@@ -265,6 +295,11 @@ fn main() -> Result<(), String> {
         }
 
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+
+        /* match (now.elapsed()) {
+            Ok(x) => println!("Elapsed time: {}", x.as_millis()),
+            Err(_) => {},
+        } */
     }
 
     Ok(())
