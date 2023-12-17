@@ -162,7 +162,7 @@ impl Widget for Text {
     fn draw(&self, canvas: &mut RefMut<Canvas<Window>>, ttf_context: Rc<RefCell<Sdl2TtfContext>>) {
         let ttf_ctx = ttf_context.borrow_mut();
         let mut font = ttf_ctx
-            .load_font(Path::new(&self.font_path.as_os_str()), 128)
+            .load_font(Path::new(&self.font_path.as_os_str()), 16)
             .unwrap();
         font.set_style(sdl2::ttf::FontStyle::BOLD);
         let surface = font.render("Hello Rust!").blended(Color::BLACK).unwrap();
@@ -172,7 +172,7 @@ impl Widget for Text {
             .unwrap();
         let TextureQuery { width, height, .. } = texture.query();
         let ratio = width as f32/height as f32;
-        canvas.copy(&texture, None, Some(Rect::new(self.x, self.y, (20.*ratio) as u32, 20)));
+        let _ = canvas.copy(&texture, None, Some(Rect::new(self.x, self.y, width as u32, height)));
     }
 
     fn check_hover(&mut self, _x: i32, _y: i32) {}
@@ -221,14 +221,20 @@ fn main() -> Result<(), String> {
     let main_id = main_window.id;
 
     let windows = Rc::new(RefCell::new(vec![main_window]));
+    let widgets: Rc<RefCell<Vec<Box<dyn Widget>>>> = Rc::new(RefCell::new(vec![]));
 
     let w_c = windows.clone();
+
+    let on_click = move || {
+        let mut w_cb = w_c.borrow_mut();
+        if w_cb.len() < 2 {
+            w_cb.push(MyWindow::create(&video_subsystem, "Second Window", 300, 500, move |c, w, t| {}));
+        }
+    };
     
 
-    let mut widgets: Vec<Box<dyn Widget>> = vec![
-        Box::new(Button::new(main_id, 10, 10, 200, 20, move || {
-            w_c.borrow_mut().push(MyWindow::create(&video_subsystem, "Second Window", 300, 500, move |c, w, t| {}));
-        })),
+    widgets.borrow_mut().append(&mut vec![
+        Box::new(Button::new(main_id, 10, 10, 200, 20, on_click)),
         Box::new(Text::new(
             main_id,
             font_path,
@@ -236,7 +242,7 @@ fn main() -> Result<(), String> {
             10,
             10,
         )),
-    ];
+    ]);
 
     'running: loop {
         let now = SystemTime::now();
@@ -252,30 +258,29 @@ fn main() -> Result<(), String> {
                         let entry = bw.get(entry_pos).unwrap();
                         drop(entry.canvas.to_owned());
                         bw.remove(entry_pos);
-                        if bw.is_empty() {
+                        if bw.is_empty() || entry_pos == 0 {
                             break 'running;
                         }
                     }
                 }
-                Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    window_id: id,
-                    ..
-                } => break 'running,
                 Event::MouseMotion {
                     window_id, x, y, ..
                 } => {
-                    for widget in &mut widgets {
-                        widget.check_hover(x, y);
+                    for widget in widgets.borrow_mut().iter_mut() {
+                        if widget.get_id() == window_id {
+                            widget.check_hover(x, y);
+                        }
                     }
                 },
                 Event::MouseButtonDown { window_id, mouse_btn: MouseButton::Left, clicks, x, y, ..} => {
-                    for widget in &mut widgets {
+                    for widget in widgets.borrow_mut().iter_mut() {
                         if widget.get_id() == window_id {
                             widget.check_click(x, y);
                         }
                     }
-                    // println!("Helloass");
+                },
+                Event::Quit { .. } => {
+                    break 'running;
                 }
                 _ => {}
             }
@@ -284,7 +289,7 @@ fn main() -> Result<(), String> {
         for window in windows.borrow_mut().iter_mut() {
             if window.active {
                 window.update(
-                    widgets
+                    widgets.borrow()
                         .iter()
                         .filter(|w| w.get_id() == window.id)
                         .cloned()
