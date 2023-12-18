@@ -43,7 +43,7 @@ impl Widget for Text {
     fn draw(&self, canvas: &mut RefMut<Canvas<Window>>, ttf_context: &Rc<RefCell<Sdl2TtfContext>>) {
         let ttf_ctx = ttf_context.borrow_mut();
         let mut font = ttf_ctx
-            .load_font(Path::new(&self.font_path.as_os_str()), 16)
+            .load_font(Path::new(&self.font_path.as_os_str()), 14)
             .unwrap();
         font.set_style(sdl2::ttf::FontStyle::BOLD);
         let surface = font.render(&self.text).blended(Color::BLACK).unwrap();

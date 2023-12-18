@@ -22,26 +22,6 @@ type DrawFn = Box<dyn FnMut(CanvasCell, Vec<Box<dyn Widget>>, Rc<RefCell<Sdl2Ttf
 mod widgets;
 mod window;
 
-/* struct WindowSettings{
-    video_subsystem: Rc<RefCell<VideoSubsystem>>,
-    title: String,
-        width: u32,
-        height: u32,
-        update: Box<dyn FnMut(CanvasCell)>,
-}
-
-impl WindowSettings {
-    fn new<F: 'static + FnMut(CanvasCell)>(video_subsystem: Rc<RefCell<VideoSubsystem>>, title: &str, width: u32, height: u32, update: F) -> Self {
-        Self { video_subsystem, title: title.to_string(), width, height, update: Box::new(update) }
-    }
-}
-
-impl Into<MyWindow> for WindowSettings {
-    fn into(self) -> MyWindow {
-        MyWindow::create(&self.video_subsystem.borrow(), self.title.as_str(), self.width, self.height, self.update)
-    }
-} */
-
 fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;

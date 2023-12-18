@@ -90,7 +90,11 @@ impl Widget for ScrollView {
 
     fn check_hover(&mut self, x: i32, y: i32) {
         self.hover = self.rect.contains_point(Point::new(x, y));
-        self.widget.check_hover(x, y);
+        if self.hover {
+            self.widget.check_hover(x, y);
+        } else {
+            self.widget.check_hover(-1, -1);
+        }
     }
 
     fn check_click(&self, x: i32, y: i32) {
