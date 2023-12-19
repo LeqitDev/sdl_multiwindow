@@ -37,18 +37,17 @@ impl ScrollView {
     }
 
     pub fn update(&mut self) {
-        if let Some(mut w_rect) = self.widget.get_rect() {
-            let t_rect = self.rect;
+        let mut w_rect = self.widget.get_rect();
+        let t_rect = self.rect;
 
-            w_rect.set_x(t_rect.x() + w_rect.x());
-            w_rect.set_y(t_rect.y() + w_rect.y());
-            self.widget.set_rect(w_rect);
+        w_rect.set_x(t_rect.x() + w_rect.x());
+        w_rect.set_y(t_rect.y() + w_rect.y());
+        self.widget.set_rect(w_rect);
 
-            let ratio = (t_rect.height() as f32 / w_rect.height() as f32).min(1.);
+        let ratio = (t_rect.height() as f32 / w_rect.height() as f32).min(1.);
 
-            self.v_ratio = ratio;
-            println!("{}", self.v_ratio);
-        }
+        self.v_ratio = ratio;
+        println!("{}", self.v_ratio);
     }
 }
 
@@ -58,7 +57,7 @@ impl Widget for ScrollView {
     }
 
     fn draw(
-        &self,
+        &mut self,
         canvas: &mut std::cell::RefMut<sdl2::render::Canvas<sdl2::video::Window>>,
         ttf_context: &std::rc::Rc<std::cell::RefCell<sdl2::ttf::Sdl2TtfContext>>,
     ) {
@@ -119,10 +118,17 @@ impl Widget for ScrollView {
                 self.offset_y =
                     ((self.rect.height() as f32 / self.v_ratio) as u32 - self.rect.height()) as i32
             }
-            if let Some(mut w_rect) = self.widget.get_rect() {
-                w_rect.set_y(self.rect.y - self.offset_y);
-                self.widget.set_rect(w_rect);
-            }
+            let mut w_rect = self.widget.get_rect();
+            w_rect.set_y(self.rect.y - self.offset_y);
+            self.widget.set_rect(w_rect);
         }
+    }
+
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+
+    fn get_rect(&self) -> Rect {
+        self.rect
     }
 }

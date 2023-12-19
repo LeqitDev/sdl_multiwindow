@@ -6,6 +6,7 @@ use sdl2::pixels::Color;
 use sdl2::render::Canvas;
 use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::Window;
+use widgets::list::List;
 use std::cell::RefCell;
 use std::env;
 use std::rc::Rc;
@@ -43,7 +44,7 @@ fn main() -> Result<(), String> {
             c.set_draw_color(Color::RGB(0, 0, 0));
             c.clear();
 
-            for widget in widgets {
+            for mut widget in widgets {
                 widget.draw(&mut c, &ttf_context);
             }
 
@@ -70,7 +71,7 @@ fn main() -> Result<(), String> {
                     c.set_draw_color(Color::RGB(0, 0, 0));
                     c.clear();
 
-                    for widget in widgets {
+                    for mut widget in widgets {
                         widget.draw(&mut c, &ttf_context);
                     }
 
@@ -97,6 +98,7 @@ fn main() -> Result<(), String> {
             200,
             300,
         )),
+        Box::new(List::new(main_id, 0, 100, 200, 300).add_widget(Box::new(Text::new(main_id, font_path.as_path(), "Test 1".to_string(), 0, 10))).add_widget(Box::new(Text::new(main_id, font_path.as_path(), "Test 2".to_string(), 0, 10)))),
     ]);
 
     'running: loop {

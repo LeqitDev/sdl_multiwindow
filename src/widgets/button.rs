@@ -45,7 +45,7 @@ impl Widget for Button {
     }
 
     fn draw(
-        &self,
+        &mut self,
         canvas: &mut RefMut<Canvas<Window>>,
         _ttf_context: &Rc<RefCell<Sdl2TtfContext>>,
     ) {
@@ -71,7 +71,7 @@ impl Widget for Button {
         self.rect = rect;
     }
 
-    fn get_rect(&self) -> Option<Rect> {
-        Some(self.rect)
+    fn get_rect(&self) -> Rect {
+        self.rect
     }
 }
