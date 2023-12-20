@@ -4,11 +4,11 @@ use sdl2::event::Event;
 use sdl2::mouse::MouseButton;
 use sdl2::pixels::Color;
 use sdl2::render::Canvas;
-use sdl2::ttf::Sdl2TtfContext;
+use sdl2::sys::SDL_SetHint;
 use sdl2::video::Window;
 use widgets::list::List;
 use std::cell::RefCell;
-use std::env;
+use std::ffi::CString;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 use widgets::button::Button;
@@ -18,34 +18,69 @@ use widgets::Widget;
 use window::MyWindow;
 
 type CanvasCell = Rc<RefCell<Canvas<Window>>>;
-type DrawFn = Box<dyn FnMut(CanvasCell, Vec<Box<dyn Widget>>, Rc<RefCell<Sdl2TtfContext>>)>;
+type DrawFn = Box<dyn FnMut(CanvasCell, Vec<Box<dyn Widget>>)>;
+
+macro_rules! add_new_to_main_with_lifetime {
+    ($struct_name:ident, $($arg_name:ident : $arg_type:ty),*) => {
+        impl<'a> $struct_name<'a> {
+            pub fn new_to_main($($arg_name : $arg_type),*) -> Self {
+                Self::new(0, $($arg_name),*)
+            }
+        }
+    };
+}
+macro_rules! add_new_to_main {
+    ($struct_name:ident, $($arg_name:ident : $arg_type:ty),*) => {
+        impl $struct_name {
+            pub fn new_to_main($($arg_name : $arg_type),*) -> Self {
+                Self::new(0, $($arg_name),*)
+            }
+        }
+    };
+}
+macro_rules! add_new_to_zero {
+    ($struct_name:ident, $($arg_name:ident : $arg_type:ty),*) => {
+        impl $struct_name {
+            pub fn new_to_zero($($arg_name : $arg_type),*) -> Self {
+                Self::new(0, 0, 0, $($arg_name),*)
+            }
+        }
+    };
+}
+macro_rules! add_new_to_zero_with_lifetime {
+    ($struct_name:ident, $($arg_name:ident : $arg_type:ty),*) => {
+        impl<'a> $struct_name<'a> {
+            pub fn new_to_zero($($arg_name : $arg_type),*) -> Self {
+                Self::new(0, 0, 0, $($arg_name),*)
+            }
+        }
+    };
+}
 
 mod widgets;
 mod window;
 
 fn main() -> Result<(), String> {
+    // unsafe { SDL_SetHint(CString::new("AppleMomentumScrollSupported").unwrap().as_ptr(), CString::new("YES").unwrap().as_ptr()); }
+
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
     let ttf_context = Rc::new(RefCell::new(sdl2::ttf::init().map_err(|e| e.to_string())?));
 
     let mut event_pump = sdl_context.event_pump()?;
 
-    let mut font_path = env::current_dir().unwrap();
-    font_path.push("assets");
-    font_path.push("OpenSans-Bold.ttf");
-
     let main_window = MyWindow::create(
         &video_subsystem,
         "Window 1",
         800,
         600,
-        move |canvas, widgets, ttf_context| {
+        move |canvas, widgets| {
             let mut c = canvas.borrow_mut();
             c.set_draw_color(Color::RGB(0, 0, 0));
             c.clear();
 
             for mut widget in widgets {
-                widget.draw(&mut c, &ttf_context);
+                widget.draw(&mut c);
             }
 
             c.present();
@@ -66,13 +101,13 @@ fn main() -> Result<(), String> {
                 "Second Window",
                 300,
                 500,
-                move |canvas, widgets, ttf_context| {
+                move |canvas, widgets| {
                     let mut c = canvas.borrow_mut();
                     c.set_draw_color(Color::RGB(0, 0, 0));
                     c.clear();
 
                     for mut widget in widgets {
-                        widget.draw(&mut c, &ttf_context);
+                        widget.draw(&mut c);
                     }
 
                     c.present();
@@ -81,25 +116,27 @@ fn main() -> Result<(), String> {
         }
     };
 
+    let mut lv = List::new(main_id, 0, 100, 200, 300);
+
+    for i in 0..200 {
+        lv = lv.add_text(format!("Text {}", i).as_str());
+    }
+
     widgets.borrow_mut().append(&mut vec![
-        Box::new(Button::new(main_id, 10, 10, 200, 20, on_click)),
-        Box::new(Text::new(
-            main_id,
-            font_path.as_path(),
-            "Hello Rust!".to_string(),
-            10,
-            10,
-        )),
+        Box::new(Button::new(main_id, 10, 10, 200, 20, "Hello Rust!", Box::new(on_click))),
         Box::new(ScrollView::new(
             main_id,
-            Box::new(Button::new(main_id, 0, 0, 30, 1000, || println!("Hi"))),
+            Box::new(lv),
             300,
             0,
             200,
             300,
         )),
-        Box::new(List::new(main_id, 0, 100, 200, 300).add_widget(Box::new(Text::new(main_id, font_path.as_path(), "Test 1".to_string(), 0, 10))).add_widget(Box::new(Text::new(main_id, font_path.as_path(), "Test 2".to_string(), 0, 10)))),
     ]);
+
+    for widget in widgets.borrow_mut().iter_mut() {
+        widget.init_ttf_context(&ttf_context.clone());
+    }
 
     'running: loop {
         let _now = SystemTime::now();
@@ -151,12 +188,25 @@ fn main() -> Result<(), String> {
                     precise_y,
                     ..
                 } => {
+                    // println!("{}", precise_y);
                     for widget in widgets.borrow_mut().iter_mut() {
                         if widget.get_id() == window_id {
                             widget.check_scroll(x, y, direction, precise_x, precise_y);
                         }
                     }
                 }
+                /* Event::MultiGesture {touch_id, d_theta, d_dist, x, y, num_fingers, .. } => {
+                    println!("hey!");
+                    for widget in widgets.borrow_mut().iter_mut() {
+                        widget.multi_gesture(y, num_fingers);
+                    }
+                }
+                Event::FingerDown { timestamp, touch_id, finger_id, x, y, dx, dy, pressure } => {
+                    println!("hi!");
+                    for widget in widgets.borrow_mut().iter_mut() {
+                        widget.finger_down();
+                    }
+                } */
                 Event::Quit { .. } => {
                     break 'running;
                 }
@@ -173,7 +223,6 @@ fn main() -> Result<(), String> {
                         .filter(|w| w.get_id() == window.get_id())
                         .cloned()
                         .collect(),
-                    ttf_context.clone(),
                 );
             }
         }

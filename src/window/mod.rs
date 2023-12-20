@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use sdl2::{render::Canvas, ttf::Sdl2TtfContext, video::Window, VideoSubsystem};
+use sdl2::{render::Canvas, video::Window, VideoSubsystem};
 
 use crate::{widgets::Widget, CanvasCell, DrawFn};
 
@@ -13,7 +13,7 @@ pub struct MyWindow {
 
 impl MyWindow {
     pub fn new<
-        F: 'static + FnMut(CanvasCell, Vec<Box<dyn Widget>>, Rc<RefCell<Sdl2TtfContext>>),
+        F: 'static + FnMut(CanvasCell, Vec<Box<dyn Widget>>),
     >(
         update: F,
         id: u32,
@@ -43,13 +43,12 @@ impl MyWindow {
     pub fn update(
         &mut self,
         widgets: Vec<Box<dyn Widget>>,
-        ttf_context: Rc<RefCell<Sdl2TtfContext>>,
     ) {
-        (self.update)(self.canvas.clone(), widgets, ttf_context);
+        (self.update)(self.canvas.clone(), widgets);
     }
 
     pub fn create<
-        F: 'static + FnMut(CanvasCell, Vec<Box<dyn Widget>>, Rc<RefCell<Sdl2TtfContext>>),
+        F: 'static + FnMut(CanvasCell, Vec<Box<dyn Widget>>),
     >(
         video_subsystem: &VideoSubsystem,
         title: &str,

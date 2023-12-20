@@ -60,6 +60,7 @@ name = "sdl_multiwindow"
 version = "0.1.0"
 dependencies = [
  "dyn-clone",
+ "lazy_static",
  "sdl2",
 ]
 

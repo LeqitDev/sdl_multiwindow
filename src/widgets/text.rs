@@ -1,9 +1,10 @@
 use std::{
     cell::{RefCell, RefMut},
     path::{Path, PathBuf},
-    rc::Rc,
+    rc::Rc, env,
 };
 
+use lazy_static::lazy_static;
 use sdl2::{
     pixels::Color,
     rect::Rect,
@@ -14,25 +15,49 @@ use sdl2::{
 
 use super::Widget;
 
+lazy_static! {
+    static ref DEFAULT_FONT_PATH: PathBuf = {
+        let mut font_path = env::current_dir().unwrap();
+        font_path.push("assets");
+        font_path.push("OpenSans-Bold.ttf");
+        font_path
+    };
+}
+
+add_new_to_main_with_lifetime!(Text, x: i32, y: i32, text: &str);
+add_new_to_zero_with_lifetime!(Text, text: &str);
+
 #[derive(Clone)]
 pub struct Text<'a> {
     id: u32,
-    font_path: PathBuf,
     text: String,
     rect: Rect,
-    height: u32,
     texture: Option<Rc<RefCell<Surface<'a>>>>,
+    ttf_context: Option<Rc<RefCell<Sdl2TtfContext>>>,
 }
 
 impl<'a> Text<'a> {
-    pub fn new(id: u32, font_path: &Path, text: String, x: i32, y: i32) -> Self {
+    pub fn new(id: u32, x: i32, y: i32, text: &str) -> Self {
         Self {
             id,
-            font_path: font_path.to_path_buf(),
-            text,
+            text: text.to_string(),
             rect: Rect::new(x, y, 0, 0),
             texture: None,
-            height: 0,
+            ttf_context: None,
+        }
+    }
+
+    fn update_texture(&mut self) {
+        if let Some(ttf_context) = &self.ttf_context {
+            let ttf_ctx = ttf_context.borrow_mut();
+            let mut font = ttf_ctx
+                .load_font(Path::new(&DEFAULT_FONT_PATH.as_os_str()), 16)
+                .unwrap();
+            font.set_style(sdl2::ttf::FontStyle::BOLD);
+            let surface = font.render(&self.text).blended(Color::BLACK).unwrap();
+            self.rect.set_width(surface.rect().width());
+            self.rect.set_height(surface.rect().height());
+            self.texture = Some(Rc::new(RefCell::new(surface)));
         }
     }
 }
@@ -42,16 +67,12 @@ impl<'a> Widget for Text<'a> {
         self.id
     }
 
-    fn draw(&mut self, canvas: &mut RefMut<Canvas<Window>>, ttf_context: &Rc<RefCell<Sdl2TtfContext>>) {
-        if self.texture.is_none() {
-            let ttf_ctx = ttf_context.borrow_mut();
-            let mut font = ttf_ctx
-                .load_font(Path::new(&self.font_path.as_os_str()), 16)
-                .unwrap();
-            font.set_style(sdl2::ttf::FontStyle::BOLD);
-            let surface = font.render(&self.text).blended(Color::BLACK).unwrap();
-            self.texture = Some(Rc::new(RefCell::new(surface)));
-        }
+    fn init_ttf_context(&mut self, ttf_context: &Rc<RefCell<Sdl2TtfContext>>) {
+        self.ttf_context = Some(ttf_context.clone());
+        self.update_texture();
+    }
+
+    fn draw(&mut self, canvas: &mut RefMut<Canvas<Window>>) {
         if self.texture.is_some() {
             let texture_creator = canvas.texture_creator();
             let texture = texture_creator
@@ -59,9 +80,6 @@ impl<'a> Widget for Text<'a> {
                 .unwrap();
             let TextureQuery { width, height, .. } = texture.query();
             let _ratio = width as f32 / height as f32;
-            self.rect.set_width(width);
-            self.rect.set_height(height);
-            self.height = height;
             let _ = canvas.copy(
                 &texture,
                 None,
@@ -75,11 +93,6 @@ impl<'a> Widget for Text<'a> {
     }
 
     fn get_rect(&self) -> Rect {
-        println!("{}", self.rect.height());
         self.rect
-    }
-
-    fn get_height(&self) -> u32 {
-        self.height
     }
 }

@@ -15,7 +15,7 @@ pub mod list;
 
 pub trait Widget: DynClone {
     fn get_id(&self) -> u32;
-    fn draw(&mut self, canvas: &mut RefMut<Canvas<Window>>, ttf_context: &Rc<RefCell<Sdl2TtfContext>>);
+    fn draw(&mut self, canvas: &mut RefMut<Canvas<Window>>);
     fn check_hover(&mut self, _x: i32, _y: i32) {}
     fn check_click(&self, _x: i32, _y: i32) {}
     fn check_scroll(
@@ -29,7 +29,9 @@ pub trait Widget: DynClone {
     }
     fn set_rect(&mut self, _rect: Rect);
     fn get_rect(&self) -> Rect;
-    fn get_height(&self) -> u32 {0}
+    fn init_ttf_context(&mut self, _ttf_context: &Rc<RefCell<Sdl2TtfContext>>) {}
+    fn multi_gesture(&mut self, _y: f32, _num_fingers: u16) {}
+    fn finger_down(&mut self) {}
 }
 
 dyn_clone::clone_trait_object!(Widget);
