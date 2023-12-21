@@ -136,13 +136,17 @@ impl Widget for ScrollView {
     fn event(&mut self, event: sdl2::event::Event) {
         match event {
             sdl2::event::Event::MouseMotion {
-                window_id, x, y, ..
+                window_id,
+                x,
+                y,
+                yrel,
+                ..
             } => {
                 if window_id == self.id {
                     let mouse = Point::new(x, y);
                     self.hover = self.rect.contains_point(mouse);
                     if self.v_ratio < 1. && self.drag_thumb {
-                        self.scroll = y as f32 / self.v_ratio;
+                        self.scroll += yrel as f32 / self.v_ratio;
                         self.scrolling = true;
                     }
                     if self.v_ratio < 1. && self.scroll_area_rect.contains_point(mouse)

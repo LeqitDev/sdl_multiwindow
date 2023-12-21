@@ -76,7 +76,9 @@ fn main() -> Result<(), String> {
             c.clear();
 
             for widget in widgets.iter_mut() {
-                widget.draw(&mut c);
+                if widget.get_id() == 1 {
+                    widget.draw(&mut c);
+                }
             }
 
             c.present();
@@ -103,7 +105,9 @@ fn main() -> Result<(), String> {
                     c.clear();
 
                     for widget in widgets.iter_mut() {
-                        widget.draw(&mut c);
+                        if widget.get_id() == 2 {
+                            widget.draw(&mut c);
+                        }
                     }
 
                     c.present();
