@@ -10,7 +10,7 @@ use sdl2::{
     video::Window,
 };
 
-use super::{Widget, text::Text};
+use super::{text::Text, Widget};
 
 #[derive(Clone)]
 pub struct Button<'a> {
@@ -54,10 +54,7 @@ impl<'a> Widget for Button<'a> {
         self.id
     }
 
-    fn draw(
-        &mut self,
-        canvas: &mut RefMut<Canvas<Window>>,
-    ) {
+    fn draw(&mut self, canvas: &mut RefMut<Canvas<Window>>) {
         canvas.set_draw_color(if !self.hover {
             Color::GREEN
         } else {
@@ -68,12 +65,22 @@ impl<'a> Widget for Button<'a> {
         }
         self.label.draw(canvas);
     }
-    fn check_hover(&mut self, x: i32, y: i32) {
-        self.hover = self.rect.contains_point(Point::new(x, y));
-    }
-    fn check_click(&self, _x: i32, _y: i32) {
-        if self.hover {
-            (self.on_click.borrow())();
+
+    fn event(&mut self, event: sdl2::event::Event) {
+        match event {
+            sdl2::event::Event::MouseMotion {
+                window_id, x, y, ..
+            } => {
+                if window_id == self.id {
+                    self.hover = self.rect.contains_point(Point::new(x, y));
+                }
+            }
+            sdl2::event::Event::MouseButtonDown { window_id, .. } => {
+                if self.hover && window_id == self.id {
+                    (self.on_click.borrow())();
+                }
+            }
+            _ => {}
         }
     }
 

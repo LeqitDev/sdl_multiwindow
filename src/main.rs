@@ -1,24 +1,20 @@
 extern crate sdl2;
 
 use sdl2::event::Event;
-use sdl2::mouse::MouseButton;
 use sdl2::pixels::Color;
 use sdl2::render::Canvas;
-use sdl2::sys::SDL_SetHint;
 use sdl2::video::Window;
-use widgets::list::List;
-use std::cell::RefCell;
-use std::ffi::CString;
+use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 use widgets::button::Button;
+use widgets::list::List;
 use widgets::scrollview::ScrollView;
-use widgets::text::Text;
 use widgets::Widget;
 use window::MyWindow;
 
 type CanvasCell = Rc<RefCell<Canvas<Window>>>;
-type DrawFn = Box<dyn FnMut(CanvasCell, Vec<Box<dyn Widget>>)>;
+type DrawFn = Box<dyn FnMut(CanvasCell, RefMut<Vec<Box<dyn Widget>>>)>;
 
 macro_rules! add_new_to_main_with_lifetime {
     ($struct_name:ident, $($arg_name:ident : $arg_type:ty),*) => {
@@ -74,12 +70,12 @@ fn main() -> Result<(), String> {
         "Window 1",
         800,
         600,
-        move |canvas, widgets| {
+        move |canvas, mut widgets| {
             let mut c = canvas.borrow_mut();
             c.set_draw_color(Color::RGB(0, 0, 0));
             c.clear();
 
-            for mut widget in widgets {
+            for widget in widgets.iter_mut() {
                 widget.draw(&mut c);
             }
 
@@ -101,12 +97,12 @@ fn main() -> Result<(), String> {
                 "Second Window",
                 300,
                 500,
-                move |canvas, widgets| {
+                move |canvas, mut widgets| {
                     let mut c = canvas.borrow_mut();
                     c.set_draw_color(Color::RGB(0, 0, 0));
                     c.clear();
 
-                    for mut widget in widgets {
+                    for widget in widgets.iter_mut() {
                         widget.draw(&mut c);
                     }
 
@@ -123,15 +119,16 @@ fn main() -> Result<(), String> {
     }
 
     widgets.borrow_mut().append(&mut vec![
-        Box::new(Button::new(main_id, 10, 10, 200, 20, "Hello Rust!", Box::new(on_click))),
-        Box::new(ScrollView::new(
+        Box::new(Button::new(
             main_id,
-            Box::new(lv),
-            300,
-            0,
+            10,
+            10,
             200,
-            300,
+            20,
+            "Hello Rust!",
+            Box::new(on_click),
         )),
+        Box::new(ScrollView::new(main_id, Box::new(lv), 300, 0, 200, 300)),
     ]);
 
     for widget in widgets.borrow_mut().iter_mut() {
@@ -141,6 +138,9 @@ fn main() -> Result<(), String> {
     'running: loop {
         let _now = SystemTime::now();
         for event in event_pump.poll_iter() {
+            for widget in widgets.borrow_mut().iter_mut() {
+                widget.event(event.clone());
+            }
             match event {
                 Event::Window {
                     win_event: sdl2::event::WindowEvent::Close,
@@ -157,56 +157,6 @@ fn main() -> Result<(), String> {
                         }
                     }
                 }
-                Event::MouseMotion {
-                    window_id, x, y, ..
-                } => {
-                    for widget in widgets.borrow_mut().iter_mut() {
-                        if widget.get_id() == window_id {
-                            widget.check_hover(x, y);
-                        }
-                    }
-                }
-                Event::MouseButtonDown {
-                    window_id,
-                    mouse_btn: MouseButton::Left,
-                    x,
-                    y,
-                    ..
-                } => {
-                    for widget in widgets.borrow_mut().iter_mut() {
-                        if widget.get_id() == window_id {
-                            widget.check_click(x, y);
-                        }
-                    }
-                }
-                Event::MouseWheel {
-                    window_id,
-                    x,
-                    y,
-                    direction,
-                    precise_x,
-                    precise_y,
-                    ..
-                } => {
-                    // println!("{}", precise_y);
-                    for widget in widgets.borrow_mut().iter_mut() {
-                        if widget.get_id() == window_id {
-                            widget.check_scroll(x, y, direction, precise_x, precise_y);
-                        }
-                    }
-                }
-                /* Event::MultiGesture {touch_id, d_theta, d_dist, x, y, num_fingers, .. } => {
-                    println!("hey!");
-                    for widget in widgets.borrow_mut().iter_mut() {
-                        widget.multi_gesture(y, num_fingers);
-                    }
-                }
-                Event::FingerDown { timestamp, touch_id, finger_id, x, y, dx, dy, pressure } => {
-                    println!("hi!");
-                    for widget in widgets.borrow_mut().iter_mut() {
-                        widget.finger_down();
-                    }
-                } */
                 Event::Quit { .. } => {
                     break 'running;
                 }
@@ -216,18 +166,11 @@ fn main() -> Result<(), String> {
 
         for window in windows.borrow_mut().iter_mut() {
             if window.is_active() {
-                window.update(
-                    widgets
-                        .borrow()
-                        .iter()
-                        .filter(|w| w.get_id() == window.get_id())
-                        .cloned()
-                        .collect(),
-                );
+                window.update((*widgets).borrow_mut());
             }
         }
 
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+        // ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
 
         /* match (now.elapsed()) {
             Ok(x) => println!("Elapsed time: {}", x.as_millis()),

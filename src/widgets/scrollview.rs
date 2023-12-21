@@ -11,14 +11,15 @@ pub struct ScrollView {
     widget: Box<dyn Widget>,
     rect: Rect,
     hover: bool,
-    offset_y: i32,
     scrolling: bool,
     scroll_sensitivity: i32,
     scroll: f32,
     scroll_acceleration: f32,
-    scroll_friction: f32,
-    scroll_prev_pos: f32,
     v_ratio: f32,
+    scroll_thumb_rect: Rect,
+    scroll_area_rect: Rect,
+    scroll_area_width: u32,
+    drag_thumb: bool,
 }
 
 impl ScrollView {
@@ -35,21 +36,18 @@ impl ScrollView {
             widget,
             rect: Rect::new(x, y, width, height),
             hover: false,
-            offset_y: 0,
             scrolling: false,
             scroll_sensitivity: 40,
             scroll: 0.,
             scroll_acceleration: 0.,
-            scroll_friction: 0.001,
-            scroll_prev_pos: 0.,
             v_ratio: 1.,
+            scroll_thumb_rect: Rect::new(0, 0, 0, 0),
+            scroll_area_rect: Rect::new(0, 0, 0, 0),
+            scroll_area_width: 8,
+            drag_thumb: false,
         };
         obj.update();
         obj
-    }
-
-    pub fn update_acc(&mut self, new_acc: f32) {
-        self.scroll_acceleration = new_acc;
     }
 
     pub fn update(&mut self) {
@@ -72,119 +70,126 @@ impl Widget for ScrollView {
         self.id
     }
 
-    fn draw(
-        &mut self,
-        canvas: &mut std::cell::RefMut<sdl2::render::Canvas<sdl2::video::Window>>,
-    ) {
+    fn draw(&mut self, canvas: &mut std::cell::RefMut<sdl2::render::Canvas<sdl2::video::Window>>) {
         canvas.set_draw_color(Color::WHITE);
         if let Err(e) = canvas.fill_rect(self.rect) {
             print!("{}", e)
         }
 
-
-        print!("{}, ", self.scroll_acceleration);
-        self.update_acc(self.scroll_acceleration * 0.98);
-
         if self.scrolling {
-            println!("{}", self.scroll_acceleration);
-            if self.scroll_acceleration.abs() < 0.0005 {self.scroll_acceleration = 0.; self.scrolling = false;}
+            // add specific scroll friction
+            if cfg!(target_os = "macos") {
+                self.scroll_acceleration *= 0.85;
+            } else {
+                self.scroll_acceleration *= 0.4;
+            }
+
+            if self.scroll_acceleration.abs() < 0.0005 {
+                self.scroll_acceleration = 0.;
+                self.scrolling = false;
+            }
             self.scroll -= self.scroll_sensitivity as f32 * self.scroll_acceleration;
             // Here you have to set your scrolling bounds i.e. if(scroll_Y < 0) scroll_Y = 0;
             if self.scroll < 0. {
+                // if at the top clamp
                 self.scroll = 0.;
                 self.scroll_acceleration = 0.;
-            } else if self.scroll + self.rect.height() as f32 >= self.rect.height() as f32 / self.v_ratio {
-                self.scroll = (self.rect.height() as f32 / self.v_ratio) - self.rect.height() as f32;
+            } else if self.scroll + self.rect.height() as f32
+                >= self.rect.height() as f32 / self.v_ratio
+            // at the bottom clamp too
+            {
+                self.scroll =
+                    (self.rect.height() as f32 / self.v_ratio) - self.rect.height() as f32;
                 self.scroll_acceleration = 0.;
             }
 
             let mut w_rect = self.widget.get_rect();
-            w_rect.set_y(self.rect.y - self.scroll as i32);
+            w_rect.set_y(self.rect.y - self.scroll as i32); // apply scroll to the widget
             self.widget.set_rect(w_rect);
         }
 
         canvas.set_clip_rect(self.rect);
-        self.widget.draw(canvas);
+        self.widget.draw(canvas); // draw widget
         canvas.set_clip_rect(None);
 
         if self.v_ratio < 1. {
+            // if inner content greater then the visual height add a scrollbar
             canvas.set_draw_color(Color::GRAY);
-            let _ = canvas.fill_rect(Rect::new(
-                self.rect.x() + self.rect.width() as i32 - 10,
+            self.scroll_area_rect = Rect::new(
+                self.rect.x() + self.rect.width() as i32 - self.scroll_area_width as i32,
                 self.rect.y(),
-                10,
+                self.scroll_area_width,
                 self.rect.height(),
-            ));
+            );
+            let _ = canvas.fill_rect(self.scroll_area_rect);
             canvas.set_draw_color(Color::RED);
-            let _ = canvas.fill_rect(Rect::new(
-                self.rect.x() + self.rect.width() as i32 - 10,
-                self.rect.y() + (self.offset_y as f32 * self.v_ratio) as i32,
-                10,
+            self.scroll_thumb_rect = Rect::new(
+                self.rect.x() + self.rect.width() as i32 - self.scroll_area_width as i32,
+                self.rect.y() + (self.scroll * self.v_ratio) as i32,
+                self.scroll_area_width,
                 (self.rect.height() as f32 * self.v_ratio) as u32,
-            ));
+            );
+            let _ = canvas.fill_rect(self.scroll_thumb_rect);
         }
     }
 
-    fn check_hover(&mut self, x: i32, y: i32) {
-        self.hover = self.rect.contains_point(Point::new(x, y));
-        if self.hover {
-            self.widget.check_hover(x, y);
-        } else {
-            self.widget.check_hover(-1, -1);
+    fn event(&mut self, event: sdl2::event::Event) {
+        match event {
+            sdl2::event::Event::MouseMotion {
+                window_id, x, y, ..
+            } => {
+                if window_id == self.id {
+                    let mouse = Point::new(x, y);
+                    self.hover = self.rect.contains_point(mouse);
+                    if self.v_ratio < 1. && self.drag_thumb {
+                        self.scroll = y as f32 / self.v_ratio;
+                        self.scrolling = true;
+                    }
+                    if self.v_ratio < 1. && self.scroll_area_rect.contains_point(mouse)
+                        || self.drag_thumb
+                    {
+                        self.scroll_area_width = 10;
+                    } else {
+                        self.scroll_area_width = 8;
+                    }
+                    if self.hover {
+                        self.widget.event(event);
+                    }
+                }
+            }
+            sdl2::event::Event::MouseButtonDown {
+                window_id, x, y, ..
+            } => {
+                if window_id == self.id {
+                    self.widget.event(event);
+                    if self.hover && self.scroll_thumb_rect.contains_point(Point::new(x, y)) {
+                        self.drag_thumb = true;
+                    }
+                }
+            }
+            sdl2::event::Event::MouseButtonUp { .. } => {
+                if self.drag_thumb {
+                    self.drag_thumb = false;
+                }
+            }
+            sdl2::event::Event::MouseWheel {
+                window_id,
+                precise_y,
+                ..
+            } => {
+                if self.hover && window_id == self.id {
+                    self.scroll_acceleration += precise_y;
+                    self.scrolling = true;
+                }
+            }
+            _ => {}
         }
     }
 
-    fn check_click(&self, x: i32, y: i32) {
-        self.widget.check_click(x, y);
-    }
-
-    fn check_scroll(
+    fn init_ttf_context(
         &mut self,
-        _x: i32,
-        _y: i32,
-        _direction: sdl2::mouse::MouseWheelDirection,
-        _precise_x: f32,
-        precise_y: f32,
+        ttf_context: &std::rc::Rc<std::cell::RefCell<sdl2::ttf::Sdl2TtfContext>>,
     ) {
-        if self.hover {
-            // self.offset_y -= (precise_y * 2.) as i32;
-            self.scroll_acceleration += precise_y;
-            if self.offset_y <= 0 {
-                self.offset_y = 0;
-            } else if self.offset_y + self.rect.height() as i32
-                >= (self.rect.height() as f32 / self.v_ratio) as i32
-            {
-                self.offset_y =
-                    ((self.rect.height() as f32 / self.v_ratio) as u32 - self.rect.height()) as i32
-            }
-            self.scrolling = true;
-            println!("hi");
-            /* let mut w_rect = self.widget.get_rect();
-            w_rect.set_y(self.rect.y - self.offset_y);
-            self.widget.set_rect(w_rect); */
-        }
-    }
-
-    fn multi_gesture(&mut self, y: f32, num_fingers: u16) {
-        println!("{}, {}", num_fingers, self.hover);
-        if num_fingers == 2 && self.hover {
-            if !self.scrolling {
-                self.scrolling = true;
-                self.scroll_prev_pos = y;
-            } else {
-                let dy = y - self.scroll_prev_pos;
-                self.scroll_acceleration = dy * 40.;
-                self.scroll_prev_pos = y;
-                self.scrolling = true;
-            }
-        }
-    }
-
-    fn finger_down(&mut self) {
-        self.scrolling = false;
-    }
-
-    fn init_ttf_context(&mut self, ttf_context: &std::rc::Rc<std::cell::RefCell<sdl2::ttf::Sdl2TtfContext>>) {
         self.widget.init_ttf_context(ttf_context);
         self.update();
     }

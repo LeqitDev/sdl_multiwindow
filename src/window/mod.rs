@@ -1,4 +1,7 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::{RefCell, RefMut},
+    rc::Rc,
+};
 
 use sdl2::{render::Canvas, video::Window, VideoSubsystem};
 
@@ -12,9 +15,7 @@ pub struct MyWindow {
 }
 
 impl MyWindow {
-    pub fn new<
-        F: 'static + FnMut(CanvasCell, Vec<Box<dyn Widget>>),
-    >(
+    pub fn new<F: 'static + FnMut(CanvasCell, RefMut<Vec<Box<dyn Widget>>>)>(
         update: F,
         id: u32,
         canvas: CanvasCell,
@@ -40,16 +41,11 @@ impl MyWindow {
         self.active
     }
 
-    pub fn update(
-        &mut self,
-        widgets: Vec<Box<dyn Widget>>,
-    ) {
+    pub fn update(&mut self, widgets: RefMut<Vec<Box<dyn Widget>>>) {
         (self.update)(self.canvas.clone(), widgets);
     }
 
-    pub fn create<
-        F: 'static + FnMut(CanvasCell, Vec<Box<dyn Widget>>),
-    >(
+    pub fn create<F: 'static + FnMut(CanvasCell, RefMut<Vec<Box<dyn Widget>>>)>(
         video_subsystem: &VideoSubsystem,
         title: &str,
         width: u32,
