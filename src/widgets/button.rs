@@ -10,6 +10,8 @@ use sdl2::{
     video::Window,
 };
 
+use crate::window::MyWindow;
+
 use super::{text::Text, Widget};
 
 #[derive(Clone)]
@@ -66,7 +68,7 @@ impl<'a> Widget for Button<'a> {
         self.label.draw(canvas);
     }
 
-    fn event(&mut self, event: sdl2::event::Event) {
+    fn event(&mut self, event: sdl2::event::Event, win: &MyWindow) {
         match event {
             sdl2::event::Event::MouseMotion {
                 window_id, x, y, ..
@@ -77,15 +79,12 @@ impl<'a> Widget for Button<'a> {
             }
             sdl2::event::Event::MouseButtonDown { window_id, .. } => {
                 if self.hover && window_id == self.id {
+                    println!("{}", win.get_id());
                     (self.on_click.borrow())();
                 }
             }
             _ => {}
         }
-    }
-
-    fn init_ttf_context(&mut self, ttf_context: &Rc<RefCell<sdl2::ttf::Sdl2TtfContext>>) {
-        self.label.init_ttf_context(ttf_context);
     }
 
     fn set_rect(&mut self, rect: Rect) {

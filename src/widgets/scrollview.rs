@@ -3,6 +3,8 @@ use sdl2::{
     rect::{Point, Rect},
 };
 
+use crate::window::MyWindow;
+
 use super::Widget;
 
 #[derive(Clone)]
@@ -20,6 +22,7 @@ pub struct ScrollView {
     scroll_area_rect: Rect,
     scroll_area_width: u32,
     drag_thumb: bool,
+    drag_offset: i32,
 }
 
 impl ScrollView {
@@ -45,12 +48,14 @@ impl ScrollView {
             scroll_area_rect: Rect::new(0, 0, 0, 0),
             scroll_area_width: 8,
             drag_thumb: false,
+            drag_offset: 0,
         };
         obj.update();
         obj
     }
 
     pub fn update(&mut self) {
+        println!("hey");
         let mut w_rect = self.widget.get_rect();
         let t_rect = self.rect;
 
@@ -62,6 +67,7 @@ impl ScrollView {
 
         self.v_ratio = ratio;
         println!("{}", self.v_ratio);
+        self.widget.give_viewport(self.rect);
     }
 }
 
@@ -74,6 +80,10 @@ impl Widget for ScrollView {
         canvas.set_draw_color(Color::WHITE);
         if let Err(e) = canvas.fill_rect(self.rect) {
             print!("{}", e)
+        }
+
+        if self.widget.has_changed() {
+            self.update();
         }
 
         if self.scrolling {
@@ -133,7 +143,7 @@ impl Widget for ScrollView {
         }
     }
 
-    fn event(&mut self, event: sdl2::event::Event) {
+    fn event(&mut self, event: sdl2::event::Event, win: &MyWindow) {
         match event {
             sdl2::event::Event::MouseMotion {
                 window_id,
@@ -148,6 +158,11 @@ impl Widget for ScrollView {
                     if self.v_ratio < 1. && self.drag_thumb {
                         self.scroll += yrel as f32 / self.v_ratio;
                         self.scrolling = true;
+                        if mouse.y() <= self.rect.y() + self.drag_offset {
+                            self.scroll = 0.;
+                        } else if mouse.y() >= self.rect.height() as i32 - self.drag_offset {
+                            self.scroll = self.rect.height() as f32 / self.v_ratio;
+                        }
                     }
                     if self.v_ratio < 1. && self.scroll_area_rect.contains_point(mouse)
                         || self.drag_thumb
@@ -157,7 +172,7 @@ impl Widget for ScrollView {
                         self.scroll_area_width = 8;
                     }
                     if self.hover {
-                        self.widget.event(event);
+                        self.widget.event(event, win);
                     }
                 }
             }
@@ -165,9 +180,10 @@ impl Widget for ScrollView {
                 window_id, x, y, ..
             } => {
                 if window_id == self.id {
-                    self.widget.event(event);
+                    self.widget.event(event, win);
                     if self.hover && self.scroll_thumb_rect.contains_point(Point::new(x, y)) {
                         self.drag_thumb = true;
+                        self.drag_offset = y - self.scroll_thumb_rect.y();
                     }
                 }
             }
@@ -188,14 +204,6 @@ impl Widget for ScrollView {
             }
             _ => {}
         }
-    }
-
-    fn init_ttf_context(
-        &mut self,
-        ttf_context: &std::rc::Rc<std::cell::RefCell<sdl2::ttf::Sdl2TtfContext>>,
-    ) {
-        self.widget.init_ttf_context(ttf_context);
-        self.update();
     }
 
     fn set_rect(&mut self, rect: Rect) {

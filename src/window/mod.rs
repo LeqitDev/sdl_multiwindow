@@ -1,9 +1,10 @@
 use std::{
+    borrow::BorrowMut,
     cell::{RefCell, RefMut},
     rc::Rc,
 };
 
-use sdl2::{render::Canvas, video::Window, VideoSubsystem};
+use sdl2::{event::Event, render::Canvas, video::Window, VideoSubsystem};
 
 use crate::{widgets::Widget, CanvasCell, DrawFn};
 
@@ -12,6 +13,7 @@ pub struct MyWindow {
     id: u32,
     active: bool,
     canvas: CanvasCell,
+    widgets: Rc<RefCell<Vec<Box<dyn Widget>>>>,
 }
 
 impl MyWindow {
@@ -26,6 +28,7 @@ impl MyWindow {
             id,
             active,
             canvas,
+            widgets: Rc::new(RefCell::new(vec![])),
         }
     }
 
@@ -41,8 +44,14 @@ impl MyWindow {
         self.active
     }
 
-    pub fn update(&mut self, widgets: RefMut<Vec<Box<dyn Widget>>>) {
-        (self.update)(self.canvas.clone(), widgets);
+    pub fn event(&mut self, event: Event) {
+        for widget in (*self.widgets).borrow_mut().iter_mut() {
+            widget.event(event.clone(), self);
+        }
+    }
+
+    pub fn update(&mut self) {
+        (self.update)(self.canvas.clone(), (*self.widgets).borrow_mut());
     }
 
     pub fn create<F: 'static + FnMut(CanvasCell, RefMut<Vec<Box<dyn Widget>>>)>(
@@ -54,6 +63,10 @@ impl MyWindow {
     ) -> Self {
         let canvas = to_canvas(add_window(video_subsystem, title, width, height).unwrap()).unwrap();
         MyWindow::new(update, canvas.id, canvas.canvas, true)
+    }
+
+    pub fn add_widget(&mut self, widget: Box<dyn Widget>) {
+        (*self.widgets).borrow_mut().push(widget);
     }
 }
 
