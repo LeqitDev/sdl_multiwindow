@@ -1,12 +1,11 @@
 use std::{
-    borrow::BorrowMut,
     cell::{RefCell, RefMut},
     rc::Rc,
 };
 
 use sdl2::{event::Event, render::Canvas, video::Window, VideoSubsystem};
 
-use crate::{widgets::Widget, CanvasCell, DrawFn};
+use crate::{widgets::Widget, CanvasCell, DrawFn, Action};
 
 pub struct MyWindow {
     update: DrawFn,
@@ -44,10 +43,20 @@ impl MyWindow {
         self.active
     }
 
-    pub fn event(&mut self, event: Event) {
+    pub fn set_active(&mut self, active: bool) {
+        self.active = active;
+    }
+
+    pub fn event(&mut self, event: Event) -> Vec<Action> {
+        let mut actions = vec![];
         for widget in (*self.widgets).borrow_mut().iter_mut() {
-            widget.event(event.clone(), self);
+            let action = widget.event(event.clone(), self);
+            match action {
+                Action::None => {},
+                _ => actions.push(action)
+            }
         }
+        actions
     }
 
     pub fn update(&mut self) {

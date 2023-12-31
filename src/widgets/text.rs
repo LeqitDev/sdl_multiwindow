@@ -11,7 +11,6 @@ use sdl2::{
     rect::Rect,
     render::{Canvas, TextureQuery},
     surface::Surface,
-    ttf::{Font, GlyphMetrics, Sdl2TtfContext},
     video::Window,
 };
 
@@ -28,22 +27,19 @@ lazy_static! {
     };
 }
 
-add_new_to_main_with_lifetime!(Text, x: i32, y: i32, text: &str);
 add_new_to_zero_with_lifetime!(Text, text: &str);
 
 #[derive(Clone)]
 pub struct Text<'a> {
-    id: u32,
     text: String,
     rect: Rect,
     texture: Option<Rc<RefCell<Surface<'a>>>>,
 }
 
 impl<'a> Text<'a> {
-    pub fn new(id: u32, x: i32, y: i32, text: &str) -> Self {
+    pub fn new(x: i32, y: i32, text: &str) -> Self {
         let mut s = Self {
-            id,
-            text: text.to_string(),
+            text: text.replace('\t', "    "),
             rect: Rect::new(x, y, 0, 0),
             texture: None,
         };
@@ -75,9 +71,6 @@ impl<'a> Text<'a> {
 }
 
 impl<'a> Widget for Text<'a> {
-    fn get_id(&self) -> u32 {
-        self.id
-    }
 
     fn draw(&mut self, canvas: &mut RefMut<Canvas<Window>>) {
         if self.texture.is_some() {

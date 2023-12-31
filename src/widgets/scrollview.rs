@@ -3,13 +3,15 @@ use sdl2::{
     rect::{Point, Rect},
 };
 
-use crate::window::MyWindow;
+use crate::{window::MyWindow, Action};
 
 use super::Widget;
 
+const APPLE_FRICTION: f32 = 0.77;
+const NORMAL_FRICTION: f32 = 0.4;
+
 #[derive(Clone)]
 pub struct ScrollView {
-    id: u32,
     widget: Box<dyn Widget>,
     rect: Rect,
     hover: bool,
@@ -23,11 +25,14 @@ pub struct ScrollView {
     scroll_area_width: u32,
     drag_thumb: bool,
     drag_offset: i32,
+    thumb_color: Color,
+    area_color: Color,
+    thumb_hover_color: Color,
+    thumb_hover: bool,
 }
 
 impl ScrollView {
     pub fn new(
-        window_id: u32,
         widget: Box<dyn Widget>,
         x: i32,
         y: i32,
@@ -35,7 +40,6 @@ impl ScrollView {
         height: u32,
     ) -> Self {
         let mut obj = Self {
-            id: window_id,
             widget,
             rect: Rect::new(x, y, width, height),
             hover: false,
@@ -49,13 +53,28 @@ impl ScrollView {
             scroll_area_width: 8,
             drag_thumb: false,
             drag_offset: 0,
+            thumb_color: Color::RGB(//gray
+                0x80,
+                0x80,
+                0x80,
+            ),
+            thumb_hover_color: Color::RGB(//light gray
+                0xA0,
+                0xA0,
+                0xA0,
+            ),
+            area_color: Color::RGB(//dark gray
+                0x60,
+                0x60,
+                0x60,
+            ),
+            thumb_hover: false,
         };
         obj.update();
         obj
     }
 
     pub fn update(&mut self) {
-        println!("hey");
         let mut w_rect = self.widget.get_rect();
         let t_rect = self.rect;
 
@@ -67,14 +86,11 @@ impl ScrollView {
 
         self.v_ratio = ratio;
         println!("{}", self.v_ratio);
-        self.widget.give_viewport(self.rect);
+        self.widget.give_viewport(Rect::new(self.rect.x(), self.rect.y(), self.rect.width(), self.rect.height() + 100));
     }
 }
 
 impl Widget for ScrollView {
-    fn get_id(&self) -> u32 {
-        self.id
-    }
 
     fn draw(&mut self, canvas: &mut std::cell::RefMut<sdl2::render::Canvas<sdl2::video::Window>>) {
         canvas.set_draw_color(Color::WHITE);
@@ -89,9 +105,9 @@ impl Widget for ScrollView {
         if self.scrolling {
             // add specific scroll friction
             if cfg!(target_os = "macos") {
-                self.scroll_acceleration *= 0.85;
+                self.scroll_acceleration *= APPLE_FRICTION;
             } else {
-                self.scroll_acceleration *= 0.4;
+                self.scroll_acceleration *= NORMAL_FRICTION;
             }
 
             if self.scroll_acceleration.abs() < 0.0005 {
@@ -124,7 +140,7 @@ impl Widget for ScrollView {
 
         if self.v_ratio < 1. {
             // if inner content greater then the visual height add a scrollbar
-            canvas.set_draw_color(Color::GRAY);
+            canvas.set_draw_color(self.area_color);
             self.scroll_area_rect = Rect::new(
                 self.rect.x() + self.rect.width() as i32 - self.scroll_area_width as i32,
                 self.rect.y(),
@@ -132,7 +148,11 @@ impl Widget for ScrollView {
                 self.rect.height(),
             );
             let _ = canvas.fill_rect(self.scroll_area_rect);
-            canvas.set_draw_color(Color::RED);
+            canvas.set_draw_color(if self.thumb_hover {
+                self.thumb_hover_color
+            } else {
+                self.thumb_color
+            });
             self.scroll_thumb_rect = Rect::new(
                 self.rect.x() + self.rect.width() as i32 - self.scroll_area_width as i32,
                 self.rect.y() + (self.scroll * self.v_ratio) as i32,
@@ -143,7 +163,7 @@ impl Widget for ScrollView {
         }
     }
 
-    fn event(&mut self, event: sdl2::event::Event, win: &MyWindow) {
+    fn event(&mut self, event: sdl2::event::Event, win: &MyWindow) -> Action {
         match event {
             sdl2::event::Event::MouseMotion {
                 window_id,
@@ -152,9 +172,10 @@ impl Widget for ScrollView {
                 yrel,
                 ..
             } => {
-                if window_id == self.id {
+                if window_id == win.get_id() {
                     let mouse = Point::new(x, y);
                     self.hover = self.rect.contains_point(mouse);
+                    self.thumb_hover = self.scroll_thumb_rect.contains_point(mouse);
                     if self.v_ratio < 1. && self.drag_thumb {
                         self.scroll += yrel as f32 / self.v_ratio;
                         self.scrolling = true;
@@ -179,7 +200,7 @@ impl Widget for ScrollView {
             sdl2::event::Event::MouseButtonDown {
                 window_id, x, y, ..
             } => {
-                if window_id == self.id {
+                if  window_id == win.get_id() {
                     self.widget.event(event, win);
                     if self.hover && self.scroll_thumb_rect.contains_point(Point::new(x, y)) {
                         self.drag_thumb = true;
@@ -197,13 +218,14 @@ impl Widget for ScrollView {
                 precise_y,
                 ..
             } => {
-                if self.hover && window_id == self.id {
+                if self.hover && window_id == win.get_id() {
                     self.scroll_acceleration += precise_y;
                     self.scrolling = true;
                 }
             }
             _ => {}
         }
+        Action::None
     }
 
     fn set_rect(&mut self, rect: Rect) {

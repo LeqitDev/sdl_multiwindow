@@ -1,15 +1,11 @@
-use std::{
-    cell::{RefCell, RefMut},
-    rc::Rc,
-};
+use std::cell::RefMut;
 
-use sdl2::{pixels::Color, rect::Rect, render::Canvas, ttf::Sdl2TtfContext, video::Window};
+use sdl2::{pixels::Color, rect::Rect, render::Canvas, video::Window};
 
 use super::{text::Text, Widget};
 
 #[derive(Clone)]
 pub struct List {
-    id: u32,
     widgets: Vec<Box<dyn Widget>>,
     rect: Rect,
     changed: bool,
@@ -18,9 +14,8 @@ pub struct List {
 }
 
 impl List {
-    pub fn new(window_id: u32, x: i32, y: i32, width: u32, height: u32) -> Self {
+    pub fn new(x: i32, y: i32, width: u32, height: u32) -> Self {
         Self {
-            id: window_id,
             widgets: vec![],
             rect: Rect::new(x, y, width, height),
             changed: false,
@@ -30,6 +25,7 @@ impl List {
     }
 
     pub fn add_widget(mut self, widget: Box<dyn Widget>) -> Self {
+        // println!("Added widget {}: {:?}", self.widgets.len(), SystemTime::now());
         self.widgets.push(widget);
         self.changed = true;
         self
@@ -41,15 +37,11 @@ impl List {
 }
 
 impl Widget for List {
-    fn get_id(&self) -> u32 {
-        self.id
-    }
 
     fn draw(&mut self, canvas: &mut RefMut<Canvas<Window>>) {
         if self.changed {
             let mut y_offset = 0;
             for widget in self.widgets.iter_mut() {
-                // widget.init_ttf_context(ttf_context);
                 let mut w_rect = widget.get_rect();
                 w_rect.set_x(self.rect.x());
                 w_rect.set_y(self.rect.y() + y_offset);
@@ -58,12 +50,16 @@ impl Widget for List {
             }
             self.rect.set_height(y_offset as u32);
             self.viewport = self.rect;
+            if self.viewport.height() > 1500 {
+                self.viewport.set_height(1500);
+            }
             self.changed = false;
             self.need_update = true;
         }
         canvas.set_draw_color(Color::WHITE);
         let _ = canvas.fill_rect(self.rect);
-        for widget in self.widgets.iter_mut() {
+
+        for (_i, widget) in self.widgets.iter_mut().enumerate() {
             if self
                 .viewport
                 .contains_point(widget.get_rect().bottom_left())

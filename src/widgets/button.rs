@@ -7,84 +7,91 @@ use sdl2::{
     pixels::Color,
     rect::{Point, Rect},
     render::Canvas,
-    video::Window,
+    video::Window, gfx::primitives::DrawRenderer,
 };
 
-use crate::window::MyWindow;
+use crate::{window::MyWindow, Action, utils::Style};
 
 use super::{text::Text, Widget};
 
 #[derive(Clone)]
 pub struct Button<'a> {
-    id: u32,
     rect: Rect,
     hover: bool,
     label: Text<'a>,
-    on_click: Rc<RefCell<Box<dyn Fn()>>>,
+    on_click: Rc<RefCell<Box<dyn Fn() -> Action>>>,
+    style: Style,
 }
-add_new_to_main_with_lifetime!(
-    Button,
-    x: i32,
-    y: i32,
-    width: u32,
-    height: u32,
-    text: &str,
-    on_click: Box<dyn Fn()>);
 
 impl<'a> Button<'a> {
-    pub fn new<F: 'static + Fn()>(
-        id: u32,
+    pub fn new<F: 'static + Fn() -> Action>(
         x: i32,
         y: i32,
         width: u32,
         height: u32,
         text: &str,
         on_click: F,
+        style: Style,
     ) -> Self {
         Self {
-            id,
             rect: Rect::new(x, y, width, height),
             hover: false,
-            label: Text::new(id, x, y, text),
+            label: Text::new(x, y, text),
             on_click: Rc::new(RefCell::new(Box::new(on_click))),
+            style,
         }
     }
 }
 
 impl<'a> Widget for Button<'a> {
-    fn get_id(&self) -> u32 {
-        self.id
-    }
 
     fn draw(&mut self, canvas: &mut RefMut<Canvas<Window>>) {
-        canvas.set_draw_color(if !self.hover {
-            Color::GREEN
+        let color = if !self.hover {
+            self.style.background_color
         } else {
-            Color::RED
-        });
-        if let Err(e) = canvas.fill_rect(self.rect) {
-            print!("{}", e)
+            self.style.hover_background_color
+        };
+        canvas.set_draw_color(color);
+        if self.style.border_radius != 0 {
+            canvas
+                .rounded_box(
+                    self.rect.x() as i16,
+                    self.rect.y() as i16,
+                    self.rect.x() as i16 + self.rect.width() as i16,
+                    self.rect.y() as i16 + self.rect.height() as i16,
+                    self.style.border_radius as i16,
+                    color,
+                )
+                .unwrap();
+            canvas
+                .fill_rect(self.rect)
+                .expect("Could not draw rect");
+        } else {
+            canvas
+                .fill_rect(self.rect)
+                .expect("Could not draw rect");
         }
         self.label.draw(canvas);
     }
 
-    fn event(&mut self, event: sdl2::event::Event, win: &MyWindow) {
+    fn event(&mut self, event: sdl2::event::Event, win: &MyWindow) -> Action {
         match event {
             sdl2::event::Event::MouseMotion {
                 window_id, x, y, ..
             } => {
-                if window_id == self.id {
-                    self.hover = self.rect.contains_point(Point::new(x, y));
+                if window_id == win.get_id() {
+                    self.hover = self.rect.contains_point(Point::new(x, y-1));
                 }
             }
             sdl2::event::Event::MouseButtonDown { window_id, .. } => {
-                if self.hover && window_id == self.id {
+                if self.hover && window_id == win.get_id() {
                     println!("{}", win.get_id());
-                    (self.on_click.borrow())();
+                    return (self.on_click.borrow())();
                 }
             }
             _ => {}
         }
+        Action::None
     }
 
     fn set_rect(&mut self, rect: Rect) {

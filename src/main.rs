@@ -6,7 +6,9 @@ use sdl2::pixels::Color;
 use sdl2::render::Canvas;
 use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::Window;
-use sdl2::Sdl;
+use shapes::rounded_rect::RoundedRect;
+use utils::Style;
+use widgets::circle::Circle;
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 use std::time::{Duration, SystemTime};
@@ -19,29 +21,11 @@ use window::MyWindow;
 type CanvasCell = Rc<RefCell<Canvas<Window>>>;
 type DrawFn = Box<dyn FnMut(CanvasCell, RefMut<Vec<Box<dyn Widget>>>)>;
 
-macro_rules! add_new_to_main_with_lifetime {
-    ($struct_name:ident, $($arg_name:ident : $arg_type:ty),*) => {
-        impl<'a> $struct_name<'a> {
-            pub fn new_to_main($($arg_name : $arg_type),*) -> Self {
-                Self::new(0, $($arg_name),*)
-            }
-        }
-    };
-}
-macro_rules! add_new_to_main {
-    ($struct_name:ident, $($arg_name:ident : $arg_type:ty),*) => {
-        impl $struct_name {
-            pub fn new_to_main($($arg_name : $arg_type),*) -> Self {
-                Self::new(0, $($arg_name),*)
-            }
-        }
-    };
-}
 macro_rules! add_new_to_zero {
     ($struct_name:ident, $($arg_name:ident : $arg_type:ty),*) => {
         impl $struct_name {
             pub fn new_to_zero($($arg_name : $arg_type),*) -> Self {
-                Self::new(0, 0, 0, $($arg_name),*)
+                Self::new(0, 0, $($arg_name),*)
             }
         }
     };
@@ -50,14 +34,21 @@ macro_rules! add_new_to_zero_with_lifetime {
     ($struct_name:ident, $($arg_name:ident : $arg_type:ty),*) => {
         impl<'a> $struct_name<'a> {
             pub fn new_to_zero($($arg_name : $arg_type),*) -> Self {
-                Self::new(0, 0, 0, $($arg_name),*)
+                Self::new(0, 0, $($arg_name),*)
             }
         }
     };
 }
 
+pub enum Action {
+    CreateWindowIfNotExists((u32, MyWindow)),
+    None,
+}
+
 mod widgets;
 mod window;
+mod shapes;
+mod utils;
 
 lazy_static! {
     static ref TTF_CONTEXT: Sdl2TtfContext = sdl2::ttf::init().unwrap();
@@ -90,17 +81,12 @@ fn main() -> Result<(), String> {
             c.present();
         },
     );
-    let main_id = main_window.get_id();
 
     let windows = Rc::new(RefCell::new(vec![]));
     let widgets: Rc<RefCell<Vec<Box<dyn Widget>>>> = Rc::new(RefCell::new(vec![]));
 
-    let w_c = windows.clone();
-
     let on_click = move || {
         // let mut w_cb = w_c.borrow_mut();
-        if let Ok(mut w_cb) = w_c.try_borrow_mut() {
-            if w_cb.len() < 2 {
                 let mut debug_win = MyWindow::create(
                     &video_subsystem,
                     "Second Window",
@@ -119,14 +105,13 @@ fn main() -> Result<(), String> {
                     },
                 );
 
-                let mut lv = List::new(main_id, 0, 100, 200, 600);
+                let mut lv = List::new(0, 100, 200, 600);
 
-                for i in 0..2000 {
+                for i in 0..4000 {
                     lv = lv.add_text(format!("Text {} \t lol", i).as_str());
                 }
 
                 debug_win.add_widget(Box::new(ScrollView::new(
-                    main_id,
                     Box::new(lv),
                     0,
                     0,
@@ -134,9 +119,7 @@ fn main() -> Result<(), String> {
                     800,
                 )));
 
-                w_cb.push(debug_win);
-            }
-        }
+                Action::CreateWindowIfNotExists((1, debug_win))
     };
 
     widgets.borrow_mut().append(&mut vec![
@@ -152,14 +135,16 @@ fn main() -> Result<(), String> {
         // Box::new(ScrollView::new(main_id, Box::new(lv), 300, 0, 200, 300)),
     ]);
     main_window.add_widget(Box::new(Button::new(
-        main_id,
         10,
         10,
         200,
         20,
         "Hello Rust!",
         Box::new(on_click),
+        Style::default().hover_bg_color(Color::RGB(160, 160, 160)).border_radius(5),
     )));
+
+    main_window.add_widget(Box::new(Circle::new(100, 100, 5, Color::RGB(255, 255, 255))));
 
     /* for widget in widgets.borrow_mut().iter_mut() {
         widget.init_ttf_context(&ttf_context.clone());
@@ -169,14 +154,11 @@ fn main() -> Result<(), String> {
 
     'running: loop {
         let _now = SystemTime::now();
+        let mut actions: Vec<Action> = Vec::new();
         for event in event_pump.poll_iter() {
-            /* for widget in widgets.borrow_mut().iter_mut() {
-                widget.event(event.clone());
-            } */
             for window in windows.borrow_mut().iter_mut() {
-                // TODO: Button needs this borrowed window var
                 if window.is_active() {
-                    window.event(event.clone());
+                    actions.append(&mut window.event(event.clone()));
                 }
             }
             match event {
@@ -202,11 +184,18 @@ fn main() -> Result<(), String> {
             }
         }
 
+        for action in actions {
+            match action {
+                Action::CreateWindowIfNotExists((i, win)) => windows.borrow_mut().insert(i as usize, win),
+                Action::None => {}
+            }
+        }
+
         for window in windows.borrow_mut().iter_mut() {
             window.update();
         }
 
-        // ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
 
         /* match (now.elapsed()) {
             Ok(x) => println!("Elapsed time: {}", x.as_millis()),
