@@ -3,13 +3,15 @@ extern crate sdl2;
 use lazy_static::lazy_static;
 use sdl2::event::Event;
 use sdl2::pixels::Color;
+use sdl2::rect::Rect;
 use sdl2::render::Canvas;
+use sdl2::sys::SDL_SetHint;
 use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::Window;
 use shapes::rounded_rect::RoundedRect;
 use utils::Style;
-use widgets::circle::Circle;
 use std::cell::{RefCell, RefMut};
+use std::ffi::CString;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 use widgets::button::Button;
@@ -40,6 +42,17 @@ macro_rules! add_new_to_zero_with_lifetime {
     };
 }
 
+impl CustomCanvas for Canvas<Window> {
+    fn rounded_rect(&mut self, rect: Rect, radius: u32) {
+        let mut rect = RoundedRect::from_rect(rect, radius);
+        rect.draw(self, self.draw_color());
+    }
+}
+
+trait CustomCanvas {
+    fn rounded_rect(&mut self, rect: Rect, radius: u32);
+}
+
 pub enum Action {
     CreateWindowIfNotExists((u32, MyWindow)),
     None,
@@ -56,7 +69,12 @@ lazy_static! {
 }
 
 fn main() -> Result<(), String> {
-    // unsafe { SDL_SetHint(CString::new("AppleMomentumScrollSupported").unwrap().as_ptr(), CString::new("YES").unwrap().as_ptr()); }
+    // set sdl2 hint to add anti-aliasing
+    let hint = CString::new("SDL_RENDER_SCALE_QUALITY").unwrap();
+    let value = CString::new("1").unwrap();
+    unsafe {
+        SDL_SetHint(hint.as_ptr(), value.as_ptr());
+    }
 
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
@@ -74,6 +92,8 @@ fn main() -> Result<(), String> {
             c.set_draw_color(Color::RGB(0, 0, 0));
             c.clear();
 
+            c.set_blend_mode(sdl2::render::BlendMode::Blend);
+
             for widget in widgets.iter_mut() {
                 widget.draw(&mut c);
             }
@@ -83,7 +103,6 @@ fn main() -> Result<(), String> {
     );
 
     let windows = Rc::new(RefCell::new(vec![]));
-    let widgets: Rc<RefCell<Vec<Box<dyn Widget>>>> = Rc::new(RefCell::new(vec![]));
 
     let on_click = move || {
         // let mut w_cb = w_c.borrow_mut();
@@ -122,33 +141,17 @@ fn main() -> Result<(), String> {
                 Action::CreateWindowIfNotExists((1, debug_win))
     };
 
-    widgets.borrow_mut().append(&mut vec![
-        /* Box::new(Button::new(
-            main_id,
-            10,
-            10,
-            200,
-            20,
-            "Hello Rust!",
-            Box::new(on_click),
-        )), */
-        // Box::new(ScrollView::new(main_id, Box::new(lv), 300, 0, 200, 300)),
-    ]);
     main_window.add_widget(Box::new(Button::new(
         10,
         10,
         200,
         20,
-        "Hello Rust!",
+        "Hello Rust! thi si sind hfbh heh ehhf  jd",
         Box::new(on_click),
-        Style::default().hover_bg_color(Color::RGB(160, 160, 160)).border_radius(5),
+        Style::default().hover_background_color(Color::RGB(160, 160, 160)).border_radius(5).font_style(utils::FontStyle::Normal).text_align(utils::TextAlign::Right).text_color(Color::RED),
     )));
 
-    main_window.add_widget(Box::new(Circle::new(100, 100, 5, Color::RGB(255, 255, 255))));
-
-    /* for widget in widgets.borrow_mut().iter_mut() {
-        widget.init_ttf_context(&ttf_context.clone());
-    } */
+    // main_window.add_widget(Box::new(Circle::new(100, 100, 5, Color::RGB(255, 255, 255))));
 
     windows.borrow_mut().push(main_window);
 

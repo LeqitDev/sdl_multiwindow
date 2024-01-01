@@ -2,6 +2,8 @@ use std::cell::RefMut;
 
 use sdl2::{pixels::Color, rect::Rect, render::Canvas, video::Window};
 
+use crate::utils::Style;
+
 use super::{text::Text, Widget};
 
 #[derive(Clone)]
@@ -32,7 +34,7 @@ impl List {
     }
 
     pub fn add_text(self, text: &str) -> Self {
-        self.add_widget(Box::new(Text::new_to_zero(text)))
+        self.add_widget(Box::new(Text::new_to_zero(text, Style::default())))
     }
 }
 

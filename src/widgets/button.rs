@@ -4,13 +4,12 @@ use std::{
 };
 
 use sdl2::{
-    pixels::Color,
     rect::{Point, Rect},
     render::Canvas,
-    video::Window, gfx::primitives::DrawRenderer,
+    video::Window,
 };
 
-use crate::{window::MyWindow, Action, utils::Style};
+use crate::{window::MyWindow, Action, utils::Style, CustomCanvas};
 
 use super::{text::Text, Widget};
 
@@ -33,12 +32,22 @@ impl<'a> Button<'a> {
         on_click: F,
         style: Style,
     ) -> Self {
+        let rect = Rect::new(x, y, width, height);
+        let xy = match style.text_align {
+            crate::utils::TextAlign::Center => {
+                (x + width as i32 / 2, y)
+            }
+            crate::utils::TextAlign::Left => (x, y),
+            crate::utils::TextAlign::Right => {
+                (x + width as i32, y)
+            }
+        };
         Self {
-            rect: Rect::new(x, y, width, height),
+            rect,
             hover: false,
-            label: Text::new(x, y, text),
+            label: Text::clipped(xy.0, xy.1, width, height, text, style.clone()),
             on_click: Rc::new(RefCell::new(Box::new(on_click))),
-            style,
+            style: style.adjust(rect),
         }
     }
 }
@@ -54,18 +63,7 @@ impl<'a> Widget for Button<'a> {
         canvas.set_draw_color(color);
         if self.style.border_radius != 0 {
             canvas
-                .rounded_box(
-                    self.rect.x() as i16,
-                    self.rect.y() as i16,
-                    self.rect.x() as i16 + self.rect.width() as i16,
-                    self.rect.y() as i16 + self.rect.height() as i16,
-                    self.style.border_radius as i16,
-                    color,
-                )
-                .unwrap();
-            canvas
-                .fill_rect(self.rect)
-                .expect("Could not draw rect");
+                .rounded_rect(self.rect, self.style.border_radius);
         } else {
             canvas
                 .fill_rect(self.rect)
@@ -80,7 +78,8 @@ impl<'a> Widget for Button<'a> {
                 window_id, x, y, ..
             } => {
                 if window_id == win.get_id() {
-                    self.hover = self.rect.contains_point(Point::new(x, y-1));
+                    println!("{}", self.label.get_rect().height());
+                    self.hover = self.rect.contains_point(Point::new(x, y));
                 }
             }
             sdl2::event::Event::MouseButtonDown { window_id, .. } => {

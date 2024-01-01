@@ -1,6 +1,6 @@
 use std::cell::RefMut;
 
-use sdl2::{pixels::Color, rect::Point, gfx::primitives::DrawRenderer, render::Canvas};
+use sdl2::{pixels::Color, rect::Point, render::Canvas};
 
 use crate::{utils::Polygon, widgets::Widget};
 
@@ -41,8 +41,8 @@ impl Circle {
         let mut pxls = vec![];
         let radius = self.radius as i32;
         let mut f = 1 - radius;
-        let mut ddF_x = 0;
-        let mut ddF_y = -2 * radius;
+        let mut dd_f_x = 0;
+        let mut dd_f_y = -2 * radius;
         let mut x = 0;
         let mut y = radius;
         let x0 = self.x;
@@ -56,12 +56,12 @@ impl Circle {
         while x < y {
             if f >= 0 {
                 y -= 1;
-                ddF_y += 2;
-                f += ddF_y;
+                dd_f_y += 2;
+                f += dd_f_y;
             }
             x += 1;
-            ddF_x += 2;
-            f += ddF_x + 1;
+            dd_f_x += 2;
+            f += dd_f_x + 1;
 
             pxls.push(Point::new(x0 + x, y0 + y));
             pxls.push(Point::new(x0 - x, y0 + y));
@@ -82,54 +82,12 @@ impl Circle {
 
         pxls
     }
-    
-    /* fn populated_circle(&self, x0: i32, y0: i32) -> Vec<Point> {
 
-        fn check_neighbours(x: i32, y: i32, circle: &Vec<Point>) -> (bool, bool, bool, bool) {
-            let mut left = false;
-            let mut right = false;
-            let mut up = false;
-            let mut down = false;
-
-            for point in circle {
-                if point.x() == x - 1 && point.y() == y {
-                    left = true;
-                }
-                if point.x() == x + 1 && point.y() == y {
-                    right = true;
-                }
-                if point.x() == x && point.y() == y - 1 {
-                    up = true;
-                }
-                if point.x() == x && point.y() == y + 1 {
-                    down = true;
-                }
-            }
-            
-            (left, right, up, down)
-        }
-
-        fn go_on(x: i32, y: i32, mut circle: Vec<Point>) -> Vec<Point> {
-            circle.push(Point::new(x, y));
-            let (left, right, up, down) = check_neighbours(x, y, &circle);
-            if !left {
-                circle = go_on(x - 1, y, circle);
-            }
-            if !right {
-                circle = go_on(x + 1, y, circle);
-            }
-            if !up {
-                circle = go_on(x, y - 1, circle);
-            }
-            if !down {
-                circle = go_on(x, y + 1, circle);
-            }
-            circle
-        }
-
-        let pxls = go_on(x0, y0, self.normal_circle(x0, y0));
-        pxls
-    } */
+    pub fn get_quarters(&self) -> (Vec<Point>, Vec<Point>, Vec<Point>, Vec<Point>) {
+        let pxls = self.get_circle();
+        let chunks = pxls.chunks(pxls.len() / 4).map(|x| x.to_vec()).collect::<Vec<Vec<Point>>>();
+        (chunks[0].clone(), chunks[1].clone(), chunks[2].clone(), chunks[3].clone())
+    }
 }
 
 impl Widget for Circle {
