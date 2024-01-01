@@ -65,8 +65,6 @@ impl<'a> Text<'a> {
     }
 
     fn update_texture(&mut self) {
-        /* if let Some(ttf_context) = &self.ttf_context {
-        let ttf_ctx = ttf_context.borrow_mut(); */
         let mut font = TTF_CONTEXT
             .load_font(Path::new(&FONT_PATHS.get(&self.style.font_style).unwrap().as_os_str()), self.style.font_size)
             .unwrap();
@@ -88,7 +86,6 @@ impl<'a> Text<'a> {
             }
         }
         self.texture = Some(Rc::new(RefCell::new(surface)));
-        // }
     }
 
     fn update_height(&mut self) {
@@ -112,12 +109,8 @@ impl<'a> Widget for Text<'a> {
                 .unwrap();
             let TextureQuery { width, height, .. } = texture.query();
             let _ratio = width as f32 / height as f32;
-            // copy texture to canvis with self.rect as viewport
-            canvas.copy(
-                &texture,
-                None,
-                self.rect,
-            ).unwrap();
+            
+            canvas.copy(&texture, None, Some(Rect::new(self.rect.x(), self.rect.y(), width, height))).unwrap();
         } else {
             self.update_texture();
         }

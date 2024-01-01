@@ -146,9 +146,29 @@ fn main() -> Result<(), String> {
         10,
         200,
         20,
-        "Hello Rust! thi si sind hfbh heh ehhf  jd",
+        "Hello Rust!",
         Box::new(on_click),
-        Style::default().hover_background_color(Color::RGB(160, 160, 160)).border_radius(5).font_style(utils::FontStyle::Normal).text_align(utils::TextAlign::Right).text_color(Color::RED),
+        Style::default().background_color(Color::RGB(0, 0, 160)).border_radius(20).font_style(utils::FontStyle::Normal).text_align(utils::TextAlign::Right).text_color(Color::RED),
+    )));
+
+    main_window.add_widget(Box::new(Button::new(
+        10,
+        40,
+        200,
+        20,
+        "Hello Rust!",
+        Box::new(|| Action::None),
+        Style::default().hover_background_color(Color::RGB(160, 160, 160)).font_style(utils::FontStyle::Bold).text_align(utils::TextAlign::Center).text_color(Color::BLACK),
+    )));
+
+    main_window.add_widget(Box::new(Button::new(
+        10,
+        70,
+        200,
+        20,
+        "Hello Rust!",
+        Box::new(|| Action::None),
+        Style::default().background_color(Color::RGB(160, 0, 160)).font_style(utils::FontStyle::Bold).text_align(utils::TextAlign::Left).text_color(Color::BLACK).font_size(10),
     )));
 
     // main_window.add_widget(Box::new(Circle::new(100, 100, 5, Color::RGB(255, 255, 255))));

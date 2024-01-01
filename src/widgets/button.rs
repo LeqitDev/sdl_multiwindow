@@ -45,7 +45,7 @@ impl<'a> Button<'a> {
         Self {
             rect,
             hover: false,
-            label: Text::clipped(xy.0, xy.1, width, height, text, style.clone()),
+            label: Text::new(xy.0, xy.1, text, style.clone()),
             on_click: Rc::new(RefCell::new(Box::new(on_click))),
             style: style.adjust(rect),
         }
