@@ -5,13 +5,11 @@ use sdl2::event::Event;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::Canvas;
-use sdl2::sys::SDL_SetHint;
 use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::Window;
 use shapes::rounded_rect::RoundedRect;
-use utils::{Style, Params};
+use utils::style::{FontStyle, TextAlign, Style, Params};
 use std::cell::{RefCell, RefMut};
-use std::ffi::CString;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 use widgets::button::Button;
@@ -72,8 +70,7 @@ fn main() -> Result<(), String> {
     // set sdl2 hint to add anti-aliasing
 
     let sdl_context = sdl2::init()?;
-    let ok = sdl2::hint::set("SDL_RENDER_SCALE_QUALITY", "1");
-    println!("{:?}", sdl2::hint::get("SDL_RENDER_SCALE_QUALITY"));
+    sdl2::hint::set("SDL_RENDER_SCALE_QUALITY", "1");
     let video_subsystem = sdl_context.video()?;
     // let ttf_context = Rc::new(RefCell::new(sdl2::ttf::init().map_err(|e| e.to_string())?));
 
@@ -145,7 +142,7 @@ fn main() -> Result<(), String> {
         20,
         "Hello Rust!",
         Box::new(on_click),
-        Style::new().background_color(Color::RGB(0, 0, 160)).border_radius(20).font_style(utils::FontStyle::Normal).text_align(utils::TextAlign::Right).text_color(Color::RED).font_size(20),
+        Style::new().background_color(Color::RGB(0, 0, 160)).border_radius(20).font_style(FontStyle::Normal).text_align(TextAlign::Right).text_color(Color::RED).font_size(20),
     )));
 
     main_window.add_widget(Box::new(Button::new(
@@ -155,7 +152,7 @@ fn main() -> Result<(), String> {
         20,
         "Hello Rust!",
         Box::new(|| Action::None),
-        Style::new().background_color(Params::Hover(Color::RGB(160, 160, 160))).font_style(utils::FontStyle::Bold).text_align(utils::TextAlign::Center).text_color(Color::BLACK),
+        Style::new().background_color(Params::Hover(Color::RGB(160, 160, 160))).font_style(FontStyle::Bold).text_align(TextAlign::Center).text_color(Color::BLACK),
     )));
 
     main_window.add_widget(Box::new(Button::new(
@@ -165,7 +162,7 @@ fn main() -> Result<(), String> {
         20,
         "Hello Rust!",
         Box::new(|| Action::None),
-        Style::new().background_color(Color::RGB(160, 0, 160)).font_style(utils::FontStyle::Bold).text_align(utils::TextAlign::Left).text_color(Color::BLACK).font_size(10),
+        Style::new().background_color(Color::RGB(160, 0, 160)).font_style(FontStyle::Bold).text_align(TextAlign::Left).text_color(Color::BLACK).font_size(10),
     )));
 
     // main_window.add_widget(Box::new(Circle::new(100, 100, 5, Color::RGB(255, 255, 255))));

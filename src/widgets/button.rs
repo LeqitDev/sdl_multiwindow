@@ -9,7 +9,7 @@ use sdl2::{
     video::Window,
 };
 
-use crate::{window::MyWindow, Action, utils::{Style, StyleValues}, CustomCanvas};
+use crate::{window::MyWindow, Action, utils::style::{Style, StyleValues, TextAlign}, CustomCanvas};
 
 use super::{text::Text, Widget};
 
@@ -34,11 +34,11 @@ impl<'a> Button<'a> {
     ) -> Self {
         let rect = Rect::new(x, y, width, height);
         let xy = match style.normal.text_align {
-            crate::utils::TextAlign::Center => {
+            TextAlign::Center => {
                 (x + width as i32 / 2, y)
             }
-            crate::utils::TextAlign::Left => (x, y),
-            crate::utils::TextAlign::Right => {
+            TextAlign::Left => (x, y),
+            TextAlign::Right => {
                 (x + width as i32, y)
             }
         };

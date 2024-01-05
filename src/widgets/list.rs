@@ -2,7 +2,7 @@ use std::cell::RefMut;
 
 use sdl2::{pixels::Color, rect::Rect, render::Canvas, video::Window};
 
-use crate::utils::Style;
+use crate::utils::style::Style;
 
 use super::{text::Text, Widget};
 

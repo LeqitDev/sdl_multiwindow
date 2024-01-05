@@ -2,7 +2,7 @@ use std::cell::RefMut;
 
 use sdl2::{pixels::Color, rect::Point, render::Canvas};
 
-use crate::{utils::Polygon, widgets::Widget};
+use crate::{utils::polygon::Polygon, widgets::Widget};
 
 #[derive(Clone)]
 pub struct Circle {

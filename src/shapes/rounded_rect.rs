@@ -1,6 +1,6 @@
 use sdl2::{render::Canvas, video::Window, pixels::Color, rect::Rect,};
 
-use crate::{widgets::circle::Circle, utils::Polygon};
+use crate::{widgets::circle::Circle, utils::polygon::Polygon};
 
 
 pub struct RoundedRect {

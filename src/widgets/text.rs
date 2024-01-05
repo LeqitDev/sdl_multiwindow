@@ -13,7 +13,7 @@ use sdl2::{
     video::Window,
 };
 
-use crate::{TTF_CONTEXT, utils::{Style, FontStyle, StyleValues}};
+use crate::{TTF_CONTEXT, utils::style::{Style, FontStyle, StyleValues, TextAlign}};
 
 use super::Widget;
 
@@ -81,11 +81,11 @@ impl<'a> Text<'a> {
             self.rect.set_height(surface.rect().height());
         }
         match self.get_style().text_align {
-            crate::utils::TextAlign::Center => {
+            TextAlign::Center => {
                 self.rect.set_x(self.rect.x() - surface.rect().width() as i32 / 2);
             }
-            crate::utils::TextAlign::Left => {}
-            crate::utils::TextAlign::Right => {
+            TextAlign::Left => {}
+            TextAlign::Right => {
                 self.rect.set_x(self.rect.x() - surface.rect().width() as i32);
             }
         }
