@@ -98,15 +98,25 @@ fn add_window(
 ) -> Result<Window, String> {
     let window = video_subsystem
         .window(title, width, height)
+        .opengl()
         .position_centered()
         .build()
         .map_err(|e| e.to_string())?;
     Ok(window)
 }
 
+fn find_sdl_gl_driver() -> Option<u32> {
+    for (index, item) in sdl2::render::drivers().enumerate() {
+        if item.name == "opengl" {
+            return Some(index as u32);
+        }
+    }
+    None
+}
+
 fn to_canvas(window: Window) -> Result<MyCanvas, String> {
     let id = window.id();
-    let canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
+    let canvas = window.into_canvas().index(find_sdl_gl_driver().unwrap()).build().map_err(|e| e.to_string())?;
     let canvas_cell = Rc::new(RefCell::new(canvas));
     Ok(MyCanvas::new(id, canvas_cell))
 }

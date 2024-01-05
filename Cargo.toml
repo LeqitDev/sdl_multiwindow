@@ -9,3 +9,6 @@ edition = "2021"
 dyn-clone = "1.0.16"
 lazy_static = "1.4.0"
 sdl2 = { version = "0.36.0", features = ["ttf", "gfx"] }
+
+[dependencies.gl]
+git = "https://github.com/bjz/gl-rs"

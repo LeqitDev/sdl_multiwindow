@@ -13,7 +13,7 @@ use sdl2::{
     video::Window,
 };
 
-use crate::{TTF_CONTEXT, utils::{Style, FontStyle}};
+use crate::{TTF_CONTEXT, utils::{Style, FontStyle, StyleValues}};
 
 use super::Widget;
 
@@ -64,19 +64,23 @@ impl<'a> Text<'a> {
         s
     }
 
+    fn get_style(&self) -> &StyleValues {
+        &self.style.normal
+    }
+
     fn update_texture(&mut self) {
         let mut font = TTF_CONTEXT
-            .load_font(Path::new(&FONT_PATHS.get(&self.style.font_style).unwrap().as_os_str()), self.style.font_size)
+            .load_font(Path::new(&FONT_PATHS.get(&self.get_style().font_style).unwrap().as_os_str()), self.get_style().font_size)
             .unwrap();
         font.set_style(sdl2::ttf::FontStyle::BOLD);
-        let surface = font.render(&self.text).blended(self.style.text_color).unwrap();
+        let surface = font.render(&self.text).blended(self.get_style().text_color).unwrap();
         if self.rect.width() <= 4 {
             self.rect.set_width(surface.rect().width());
         }
         if self.rect.height() <= 4 {
             self.rect.set_height(surface.rect().height());
         }
-        match self.style.text_align {
+        match self.get_style().text_align {
             crate::utils::TextAlign::Center => {
                 self.rect.set_x(self.rect.x() - surface.rect().width() as i32 / 2);
             }
@@ -90,7 +94,7 @@ impl<'a> Text<'a> {
 
     fn update_height(&mut self) {
         let mut font = TTF_CONTEXT
-            .load_font(Path::new(&FONT_PATHS.get(&self.style.font_style).unwrap().as_os_str()), 16)
+            .load_font(Path::new(&FONT_PATHS.get(&self.get_style().font_style).unwrap().as_os_str()), 16)
             .unwrap();
         font.set_style(sdl2::ttf::FontStyle::BOLD);
         if self.rect.height() <= 4 {

@@ -9,7 +9,7 @@ use sdl2::{
     video::Window,
 };
 
-use crate::{window::MyWindow, Action, utils::Style, CustomCanvas};
+use crate::{window::MyWindow, Action, utils::{Style, StyleValues}, CustomCanvas};
 
 use super::{text::Text, Widget};
 
@@ -33,7 +33,7 @@ impl<'a> Button<'a> {
         style: Style,
     ) -> Self {
         let rect = Rect::new(x, y, width, height);
-        let xy = match style.text_align {
+        let xy = match style.normal.text_align {
             crate::utils::TextAlign::Center => {
                 (x + width as i32 / 2, y)
             }
@@ -50,20 +50,23 @@ impl<'a> Button<'a> {
             style: style.adjust(rect),
         }
     }
+
+    fn get_style(&self) -> &StyleValues {
+        if self.hover {
+            &self.style.hover
+        } else {
+            &self.style.normal
+        }
+    }
 }
 
 impl<'a> Widget for Button<'a> {
 
     fn draw(&mut self, canvas: &mut RefMut<Canvas<Window>>) {
-        let color = if !self.hover {
-            self.style.background_color
-        } else {
-            self.style.hover_background_color
-        };
-        canvas.set_draw_color(color);
-        if self.style.border_radius != 0 {
+        canvas.set_draw_color(self.get_style().background_color);
+        if self.get_style().border_radius != 0 {
             canvas
-                .rounded_rect(self.rect, self.style.border_radius);
+                .rounded_rect(self.rect, self.get_style().border_radius);
         } else {
             canvas
                 .fill_rect(self.rect)
@@ -78,7 +81,6 @@ impl<'a> Widget for Button<'a> {
                 window_id, x, y, ..
             } => {
                 if window_id == win.get_id() {
-                    println!("{}", self.label.get_rect().height());
                     self.hover = self.rect.contains_point(Point::new(x, y));
                 }
             }

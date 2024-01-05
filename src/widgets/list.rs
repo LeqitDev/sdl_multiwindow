@@ -34,7 +34,7 @@ impl List {
     }
 
     pub fn add_text(self, text: &str) -> Self {
-        self.add_widget(Box::new(Text::new_to_zero(text, Style::default())))
+        self.add_widget(Box::new(Text::new_to_zero(text, Style::new())))
     }
 }
 
